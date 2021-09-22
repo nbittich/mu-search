@@ -109,12 +109,15 @@ class ElasticQueryBuilder
   # TODO correctly handle nested objects
   # TODO correctly handle composite types
   def build_source_fields
-    file_fields = @type_def["properties"].select do |key, val|
-      val.is_a?(Hash) && val["attachment_pipeline"]
+    props = @type_def["properties"]
+    if props.is_a?(Hash)
+      file_fields = props.select do |key, val|
+        val.is_a?(Hash) && val["attachment_pipeline"]
+      end
+      @es_query["_source"] = {
+        excludes: file_fields.keys
+      }
     end
-    @es_query["_source"] = {
-      excludes: file_fields.keys
-    }
     self
   end
 

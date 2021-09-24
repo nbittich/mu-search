@@ -119,7 +119,6 @@ class ElasticQueryBuilder
   end
 
   def filter_file_fields p
-      @logger.warn("ELASTICSEARCH") { "goes in." }
       file_fields = p.select do |key, val|
         val.is_a?(Hash) && val["attachment_pipeline"]
       end

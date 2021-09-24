@@ -110,15 +110,22 @@ class ElasticQueryBuilder
   # TODO correctly handle composite types
   def build_source_fields
     props = @type_def["properties"]
-    if props.is_a?(Hash)
-      file_fields = props.select do |key, val|
+    if props.is_a?(Array)
+      props.each { |p| filter_file_fields p }
+    elsif props.is_a?(Hash)
+      filter_file_fields props
+    end
+    self
+  end
+
+  def filter_file_fields p
+      @logger.warn("ELASTICSEARCH") { "goes in." }
+      file_fields = p.select do |key, val|
         val.is_a?(Hash) && val["attachment_pipeline"]
       end
       @es_query["_source"] = {
         excludes: file_fields.keys
       }
-    end
-    self
   end
 
 

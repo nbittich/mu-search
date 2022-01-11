@@ -467,6 +467,17 @@ Attachments processed by Tika are cached in the directory `/cache` (by SHA256 of
 
 See also "How to specify a file's content as property".
 
+##### [Experimental] Inheritance
+in config.json:
+```
+      "rdf_type": "http://data.vlaanderen.be/ns/besluit#Bestuurseenheid",
+      "sub_types": [
+        "http://data.lblod.info/vocabularies/erediensten/CentraalBestuurVanDeEredienst",
+        "http://data.lblod.info/vocabularies/erediensten/BestuurVanDeEredienst",
+        "http://data.lblod.info/vocabularies/erediensten/RepresentatiefOrgaan"
+      ],
+```
+
 ##### [Experimental] Nested objects
 A search document can contain nested objects up to an arbitrary depth. For example for a person you can nest the address object as a property of the person search document.
 

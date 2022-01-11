@@ -37,7 +37,14 @@ module MuSearch
       @index_definitions.each do |type_def|
         @logger.info("INDEXING") { "Building index of type #{type_def["type"]}" }
         rdf_type = type_def["rdf_type"]
-        number_of_documents = count_documents(rdf_type)
+        sub_types = type_def["sub_types"]
+        type = "<#{rdf_type}>"
+        if sub_types.nil? || !sub_types.is_a?(Array)
+            # do nothing
+        else
+          type = type + "," + sub_types.map{|t| "<#{t}>"}.join(",")
+        end
+        number_of_documents = count_documents(type)
         @logger.info("INDEXING") { "Found #{number_of_documents} documents to index of type #{rdf_type} with allowed groups #{@search_index.allowed_groups}" }
         batches =
           if @max_batches and @max_batches != 0
@@ -60,7 +67,7 @@ module MuSearch
               attachment_path_base: @attachment_path_base,
               logger: @logger
             )
-            document_uris = get_documents_for_batch rdf_type, i
+            document_uris = get_documents_for_batch type, i
             document_uris.each do |document_uri|
               @logger.debug("INDEXING") { "Indexing document #{document_uri} in batch #{i}" }
               document = document_builder.fetch_document_to_index(
@@ -109,18 +116,20 @@ module MuSearch
       end
     end
 
-    def count_documents(rdf_type)
+    def count_documents(type)
       @sparql_connection_pool.with_authorization(@search_index.allowed_groups) do |client|
-        result = client.query("SELECT (COUNT(?doc) as ?count) WHERE { ?doc a #{SinatraTemplate::Utils.sparql_escape_uri(rdf_type)} }")
+        query = "SELECT (COUNT(?doc) as ?count) WHERE { ?doc a ?type. filter(?type in(#{type})) }"
+        result = client.query(query)
         documents_count = result.first["count"].to_i
         documents_count
       end
     end
 
-    def get_documents_for_batch(rdf_type, batch_i)
+    def get_documents_for_batch(type, batch_i)
       offset = (batch_i - 1) * @batch_size
       @sparql_connection_pool.with_authorization(@search_index.allowed_groups) do |client|
-        result = client.query("SELECT DISTINCT ?doc WHERE { ?doc a <#{rdf_type}>.  } LIMIT #{@batch_size} OFFSET #{offset}")
+        query = "SELECT DISTINCT ?doc WHERE { ?doc a ?type. filter(?type in(#{type}))  } LIMIT #{@batch_size} OFFSET #{offset}"
+        result = client.query(query)
         document_uris = result.map { |r| r[:doc].to_s }
         @logger.debug("INDEXING") { "Selected documents for batch #{batch_i}: #{document_uris}" }
         document_uris

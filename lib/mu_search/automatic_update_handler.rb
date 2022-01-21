@@ -43,9 +43,7 @@ module MuSearch
           rdf_type = @type_definitions[index_type]["rdf_type"]
           sub_types = @type_definitions[index_type]["sub_types"]
           type = "<#{rdf_type}>"
-          if sub_types.nil? || !sub_types.is_a?(Array)
-              # do nothing
-          else
+          unless sub_types.nil? || !sub_types.is_a?(Array)
             type = type + "," + sub_types.map{|t| "<#{t}>"}.join(",")
           end
           allowed_groups = index.allowed_groups

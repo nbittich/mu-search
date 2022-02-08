@@ -275,7 +275,7 @@ module MuSearch
                 property_map[value] << { type_name: type, rdf_type: t, rdf_properties: [value] }
                 unless comp_type.nil? 
                   comp_type.each do |ct|
-                    property_map[property] << { type_name: ct, rdf_type: t, rdf_properties: [value] }
+                    property_map[value] << { type_name: ct, rdf_type: t, rdf_properties: [value] }
                   end
                 end
               end

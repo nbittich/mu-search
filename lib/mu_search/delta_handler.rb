@@ -213,7 +213,7 @@ module MuSearch
     # TOOD add correct handling for nested_types
     def map_property_to_config(type_definitions)
       property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      type_definitions.reject{ |type, config| config.has_key?("composite_tyes")}.each do |type, config|
+      type_definitions.reject{ |type, config| config.has_key?("composite_types")}.each do |type, config|
         config["properties"].each do |key, value|
           value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
           if value.kind_of?(Array)

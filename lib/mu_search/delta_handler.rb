@@ -215,11 +215,12 @@ module MuSearch
       property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
       type_definitions.reject{ |type, config| config.has_key?("composite_types")}.each do |type, config|
         config["properties"].each do |key, value|
+          sub_types = config["sub_types"]
+          rdf_type = config["rdf_type"]
           value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
           if value.kind_of?(Array)
             value.each do |property|
-              property_map[property] << { type_name: type, rdf_type: config["rdf_type"], rdf_properties: value }
-              sub_types = config["sub_types"]
+              property_map[property] << { type_name: type, rdf_type: rdf_type, rdf_properties: value }
               unless sub_types.nil? || !sub_types.is_a?(Array)
                 sub_types.each do |t| 
                   property_map[property] << { type_name: type, rdf_type: t, rdf_properties: value }
@@ -227,7 +228,12 @@ module MuSearch
               end
             end
           else
-            property_map[value] << { type_name: type, rdf_type: config["rdf_type"], rdf_properties: [ value ] }
+            property_map[value] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ value ] }
+            unless sub_types.nil? || !sub_types.is_a?(Array)
+              sub_types.each do |t| 
+                property_map[value] << { type_name: type, rdf_type: t, rdf_properties: [value] }
+              end
+            end
           end
         end
       end

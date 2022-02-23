@@ -39,7 +39,7 @@ module MuSearch
         else
           search_configuration[:update_wait_interval_minutes]
         end
-      @min_wait_time =  wait_interval * 60 / 86400.0
+      @min_wait_time =  wait_interval * 10 / 86400.0 # nordine todo put it back
 
       # FIFO queue of outstanding update actions, max. 1 per subject
       @queue = []

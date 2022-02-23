@@ -18,8 +18,6 @@ module MuSearch
     #   - properties: Array of properties as configured in the search config
     def fetch_document_to_index( uri: nil, properties: nil )
       # we include uuid because it may be used for folding
-      @logger.info("DOCUMENT BUILDER") { "NORDINE GOEZ IN" }
-
       properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.has_key?("uuid")
 
       key_value_tuples = properties.collect do |key, prop_config|
@@ -36,8 +34,6 @@ module MuSearch
         else
           index_value = build_simple_property(prop_values)
         end
-        @logger.info("DOCUMENT BUILDER") { "NORDINE GOEZ OUT" }
-
         [key, denumerate(index_value)]
       end
 

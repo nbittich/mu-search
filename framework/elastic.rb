@@ -197,13 +197,13 @@ class Elastic
     resp = run(uri, req)
 
     if resp.is_a? Net::HTTPNotFound
-      @logger.info("UPDATE HANDLER") { "Cannot update document #{id} in index #{index} because it doesn't exist" }
+      @logger.info("ELASTICSEARCH") { "Cannot update document #{id} in index #{index} because it doesn't exist" }
       nil
     elsif resp.is_a? Net::HTTPSuccess
-      @logger.info("UPDATE HANDLER") { "Updated document #{id} in index #{index}" }
+      @logger.debug("ELASTICSEARCH") { "Updated document #{id} in index #{index}" }
       JSON.parse resp.body
     else
-      @logger.error("UPDATE HANDLER") { "Failed to update document #{id} in index #{index}.\nPOST #{uri}\nRequest: #{req_body}\nResponse: #{resp.code} #{resp.msg}\n#{resp.body}" }
+      @logger.error("ELASTICSEARCH") { "Failed to update document #{id} in index #{index}.\nPOST #{uri}\nRequest: #{req_body}\nResponse: #{resp.code} #{resp.msg}\n#{resp.body}" }
       raise "Failed to update document #{id} in index #{index}"
     end
   end
@@ -214,10 +214,10 @@ class Elastic
   # - id: elastic identifier to store the document under
   # - document: document contents (as a ruby json object)
   def upsert_document index, id, document
-    @logger.info("UPDATE HANDLER") { "Trying to update document with id #{id}" }
+    @logger.debug("ELASTICSEARCH") { "Trying to update document with id #{id}" }
     updated_document = update_document index, id, document
     if updated_document.nil?
-      @logger.info("UPDATE HANDLER") { "Document #{id} does not exist yet, trying to insert new document" }
+      @logger.debug("ELASTICSEARCH") { "Document #{id} does not exist yet, trying to insert new document" }
       insert_document index, id, document
     else
       updated_document

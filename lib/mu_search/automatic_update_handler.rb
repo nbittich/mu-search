@@ -59,11 +59,15 @@ module MuSearch
             type
           end
           type = type_def.join(",")
-          @logger.info("UPDATE HANDLER") { "NORDINE UPDATEHANDLER XXX #{type}" }
       
           allowed_groups = index.allowed_groups
           if document_exists_for? allowed_groups, document_id, type
             @logger.info("UPDATE HANDLER") { "Document <#{document_id}> needs to be updated in index #{index.name} for '#{index_type}' and allowed groups #{allowed_groups}" }
+            # NORDINE
+            exact_types = find_document_exact_types allowed_groups, document_id
+            properties = index_definitions.find {|item| exact_types.include?(item["rdf_type"])}["properties"]
+            # NORDINE
+
             @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
               document_builder = MuSearch::DocumentBuilder.new(
                 tika: @tika,
@@ -71,8 +75,11 @@ module MuSearch
                 attachment_path_base: @attachment_path_base,
                 logger: @logger
               )
-              properties = @type_definitions[index_type]["properties"]
+              
+              #properties = @type_definitions[index_type]["properties"] 
               document = document_builder.fetch_document_to_index(uri: document_id, properties: properties)
+              @logger.info("UPDATE HANDLER") { "NORDINE UPDATEHANDLER XXX #{document}" }
+
               @elasticsearch.upsert_document index.name, document_id, document
             end
           else
@@ -111,6 +118,13 @@ module MuSearch
       @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
         
         sparql_client.query "ASK {#{sparql_escape_uri(document_id)} a ?type. filter(?type in(#{type})) }"
+      end
+    end
+    def find_document_exact_types(allowed_groups, document_id)
+      @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
+        result = sparql_client.query "SELECT ?type where {#{sparql_escape_uri(document_id)} a ?type. }"
+        types = result.map { |r| r[:type].to_s }
+        types
       end
     end
   end

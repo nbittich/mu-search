@@ -78,7 +78,6 @@ module MuSearch
               
               #properties = @type_definitions[index_type]["properties"] 
               document = document_builder.fetch_document_to_index(uri: document_id, properties: properties)
-              @logger.info("UPDATE HANDLER") { "NORDINE UPDATEHANDLER XXX #{document}" }
 
               @elasticsearch.upsert_document index.name, document_id, document
             end

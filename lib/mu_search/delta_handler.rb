@@ -268,7 +268,12 @@ module MuSearch
           if value.kind_of?(Array)
             value.each do |property|
               property_map[property] << { type_name: type, rdf_type: rdf_type, rdf_properties: value }
-              
+              # NORDINE
+              unless comp_type.nil? 
+                comp_type.each do |ct|
+                  property_map[property] << { type_name: ct, rdf_type: rdf_type, rdf_properties: value }
+                end
+              end
               unless sub_types.nil? || !sub_types.is_a?(Array)
                 sub_types.each do |t| 
                   property_map[property] << { type_name: type, rdf_type: t, rdf_properties: value }

@@ -40,15 +40,12 @@ module MuSearch
       index_types.each do |index_type|
         @logger.info("UPDATE HANDLER") { "Updating document <#{document_id}> in indexes for type '#{index_type}'" }
         indexes = @index_manager.indexes[index_type]
-        @logger.info("UPDATE HANDLER") { "NORDINE UPDATEHANDLER 1.1 #{indexes}" }
         indexes.each do |_, index|
-          # NORDINE
           type_def = @type_definitions[index_type]
           index_definitions = [type_def]
           if type_def["composite_types"] and type_def["composite_types"].length
             index_definitions = expand_composite_type_definition type_def
           end
-          # NORDINE
           type_def = index_definitions.map do |definition|
             rdf_type = definition["rdf_type"]
             sub_types = definition["sub_types"]
@@ -63,10 +60,8 @@ module MuSearch
           allowed_groups = index.allowed_groups
           if document_exists_for? allowed_groups, document_id, type
             @logger.info("UPDATE HANDLER") { "Document <#{document_id}> needs to be updated in index #{index.name} for '#{index_type}' and allowed groups #{allowed_groups}" }
-            # NORDINE
             exact_types = find_document_exact_types allowed_groups, document_id
             properties = index_definitions.find {|item| exact_types.include?(item["rdf_type"])}["properties"]
-            # NORDINE
 
             @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
               document_builder = MuSearch::DocumentBuilder.new(

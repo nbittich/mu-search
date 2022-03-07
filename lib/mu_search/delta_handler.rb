@@ -194,7 +194,6 @@ module MuSearch
     # TOOD add correct handling for nested_types
     def map_type_to_config(type_definitions)
       type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      # NORDINE
       composite_type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
 
       type_definitions.reject{ |type, config| !config.has_key?("composite_types")}.each do |type, config|
@@ -203,40 +202,31 @@ module MuSearch
           composite_type_map[ct] << type
         end
       end
-      @logger.info("NORDINE") { "#BLOCK 1.1 => #{composite_type_map}" }
-
-      # NORDINE
 
 
       type_definitions.reject{ |type, config| config.has_key?("composite_types")}.each do |type, config|
         rdf_type = config["rdf_type"]
         sub_types = config["sub_types"]
-        comp_type = composite_type_map[type] # NORDINE
-        @logger.info("NORDINE") { "#BLOCK 1.2 => #{comp_type}" }
+        comp_type = composite_type_map[type]
 
         unless sub_types.nil? || !sub_types.is_a?(Array)
           sub_types.each do |t| 
             type_map[t] << { type_name: type, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
-            # NORDINE
             unless comp_type.nil? 
               comp_type.each do |ct|
                 type_map[t] << { type_name: ct, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
               end
             end
-            # NORDINE
           end
         end
         type_map[rdf_type] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ RDF.type.to_s ] }
-        # NORDINE
         unless comp_type.nil? 
           comp_type.each do |ct|
             type_map[rdf_type] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [ RDF.type.to_s ] }
           end
         end
-        # NORDINE
-        @logger.info("NORDINE") { "#BLOCK 1.3 => #{type_map}" }
       end
-     
+      type_map
     end
 
     ##
@@ -245,7 +235,6 @@ module MuSearch
     # TOOD add correct handling for nested_types
     def map_property_to_config(type_definitions)
       property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      # NORDINE
       composite_type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
 
       type_definitions.reject{ |type, config| !config.has_key?("composite_types")}.each do |type, config|
@@ -254,21 +243,17 @@ module MuSearch
           composite_type_map[ct] << type
         end
       end
-      @logger.info("NORDINE") { "#BLOCK 2.1 => #{composite_type_map}" }
 
-      # NORDINE
       type_definitions.reject{ |type, config| config.has_key?("composite_types")}.each do |type, config|
         config["properties"].each do |key, value|
           sub_types = config["sub_types"]
           rdf_type = config["rdf_type"]
-          comp_type = composite_type_map[type] # NORDINE
-          @logger.info("NORDINE") { "#BLOCK 2.2 => #{comp_type}" }
+          comp_type = composite_type_map[type]
 
           value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
           if value.kind_of?(Array)
             value.each do |property|
               property_map[property] << { type_name: type, rdf_type: rdf_type, rdf_properties: value }
-              # NORDINE
               unless comp_type.nil? 
                 comp_type.each do |ct|
                   property_map[property] << { type_name: ct, rdf_type: rdf_type, rdf_properties: value }
@@ -277,37 +262,29 @@ module MuSearch
               unless sub_types.nil? || !sub_types.is_a?(Array)
                 sub_types.each do |t| 
                   property_map[property] << { type_name: type, rdf_type: t, rdf_properties: value }
-                  # NORDINE
                   unless comp_type.nil? 
                     comp_type.each do |ct|
                       property_map[property] << { type_name: ct, rdf_type: t, rdf_properties: value }
                     end
                   end
-                  # NORDINE
                 end
               end
             end
           else
             property_map[value] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ value ] }
-            # NORDINE
             unless comp_type.nil? 
               comp_type.each do |ct|
                 property_map[value] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [value] }
               end
             end
-            # NORDINE
             unless sub_types.nil? || !sub_types.is_a?(Array)
               sub_types.each do |t| 
                 property_map[value] << { type_name: type, rdf_type: t, rdf_properties: [value] }
-                # NORDINE
                 unless comp_type.nil? 
                   comp_type.each do |ct|
                     property_map[value] << { type_name: ct, rdf_type: t, rdf_properties: [value] }
                   end
                 end
-                # NORDINE
-                @logger.info("NORDINE") { "#BLOCK 2.3 => #{property_map}" }
-
               end
             end
           end

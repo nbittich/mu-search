@@ -49,7 +49,7 @@ module MuSearch
 
       config[:type_definitions] = Hash[
         json_config["types"].collect do |type_def|
-          [type_def["type"], type_def]
+          [type_def["type"], IndexDefinition.new type_def]
         end
       ]
 

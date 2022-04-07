@@ -51,18 +51,18 @@ module MuSearch
             rdf_type = definition["rdf_type"]
             sub_types = definition["sub_types"]
             type = "<#{rdf_type}>"
-            unless sub_types.nil? || !sub_types.is_a?(Array)
+            if type_def.has_sub_types?
               type = type + "," + sub_types.map{|t| "<#{t}>"}.join(",")
             end
             type
           end
           type = type_def.join(",")
-      
+
           allowed_groups = index.allowed_groups
           if document_exists_for? allowed_groups, document_id, type
             @logger.info("UPDATE HANDLER") { "Document <#{document_id}> needs to be updated in index #{index.name} for '#{index_type}' and allowed groups #{allowed_groups}" }
             exact_types = find_document_exact_types allowed_groups, document_id
-          
+
 
             @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
               document_builder = MuSearch::DocumentBuilder.new(
@@ -74,7 +74,7 @@ module MuSearch
               definition = nil
               index_definitions.each do |item|
                 rdf_type = item["rdf_type"]
-                if exact_types.include?(rdf_type) 
+                if exact_types.include?(rdf_type)
                   definition = item
                   break
                 end
@@ -82,7 +82,7 @@ module MuSearch
               if definition.nil?
                 index_definitions.each do |item|
                   sub_types = item["sub_types"]
-                  unless sub_types.nil? || !sub_types.is_a?(Array)
+                  if item.has_sub_types?
                     intersect = (sub_types & exact_types)
                     if intersect.length
                       definition = item
@@ -131,7 +131,7 @@ module MuSearch
     end
     def document_exists_for?(allowed_groups, document_id, type)
       @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
-        
+
         sparql_client.query "ASK {#{sparql_escape_uri(document_id)} a ?type. filter(?type in(#{type})) }"
       end
     end

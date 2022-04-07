@@ -39,7 +39,7 @@ module MuSearch
         rdf_type = type_def["rdf_type"]
         sub_types = type_def["sub_types"]
         type = "<#{rdf_type}>"
-        unless sub_types.nil? || !sub_types.is_a?(Array)
+        if type_def.has_sub_types?
           type = type + "," + sub_types.map{|t| "<#{t}>"}.join(",")
         end
         number_of_documents = count_documents(type)

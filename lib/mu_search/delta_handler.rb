@@ -208,7 +208,7 @@ module MuSearch
         sub_types = config["sub_types"]
         comp_type = composite_type_map[type]
 
-        unless sub_types.nil? || !sub_types.is_a?(Array)
+        if config.has_sub_types?
           sub_types.each do |t|
             type_map[t] << { type_name: type, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
             unless comp_type.nil?
@@ -258,7 +258,7 @@ module MuSearch
                   property_map[property] << { type_name: ct, rdf_type: rdf_type, rdf_properties: value }
                 end
               end
-              unless sub_types.nil? || !sub_types.is_a?(Array)
+              if config.has_sub_types?
                 sub_types.each do |t|
                   property_map[property] << { type_name: type, rdf_type: t, rdf_properties: value }
                   unless comp_type.nil?
@@ -276,7 +276,7 @@ module MuSearch
                 property_map[value] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [value] }
               end
             end
-            unless sub_types.nil? || !sub_types.is_a?(Array)
+            if config.has_sub_types?
               sub_types.each do |t|
                 property_map[value] << { type_name: type, rdf_type: t, rdf_properties: [value] }
                 unless comp_type.nil?

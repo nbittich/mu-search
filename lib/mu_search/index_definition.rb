@@ -3,8 +3,9 @@ module MuSearch
   # in the config file you will find these definitions on the the keyword "types"
   # It was created mostly the abstract some of the complexity that composite and sub types introduce
   class IndexDefinition
-    attr_reader :name, :on_path, :rdf_type, :properties, :mappings
+    attr_reader :name, :on_path, :rdf_type, :properties, :mappings, :settings
     attr_reader :sub_types, :composite_types
+
     def initialize(
           name:,
           on_path:,
@@ -12,7 +13,8 @@ module MuSearch
           composite_types: nil,
           sub_types: nil,
           properties:,
-          mappings: nil
+          mappings: nil,
+          settings: nil
         )
       @type = type
       @on_path = on_path
@@ -20,10 +22,25 @@ module MuSearch
       @sub_types = ! sub_types.nil? && sub_types.kind_of?(Array) ? sub_types : []
       @composite_types = ! composite_types.nil? && composite_types.kind_of(Array) ? composite_types : []
       @properties = properties
+      @mappings = mappings
+      @settings = settings
 
       if is_composite_index? and is_regular_index?
         raise "invalid type definition for #{type}. Composite indexes can't have a rdf_type"
       end
+    end
+
+    def self.from_json_def(hash)
+      IndexDefinition.new(
+        name: hash["type"],
+        on_path: hash["on_path"],
+        rdf_type: hash["rdf_type"],
+        composite_types: hash["composite_types"],
+        sub_types: hash["sub_types"],
+        properties: hash["properties"],
+        mappings: hash["mappings"],
+        settings: hash["settings"]
+      )
     end
 
     def type
@@ -49,6 +66,9 @@ module MuSearch
       "Index definition: {@name: #{name}, @on_path: #{on_path}}"
     end
 
+    # allow the index definition to be used as a hash
+    # this is provided for backwards compatibility
+    # which is why it also uses the json keys for some fields
     def [](name)
       case name
       when "type"
@@ -63,8 +83,10 @@ module MuSearch
         @composite_types
       when "properties"
         @properties
-      when "mapping"
-        @mapping
+      when "mappings"
+        @mappings
+      when "settings"
+        @settings
       else
         raise ArgumentError.new("#{name} is not accessible on #{self}")
       end

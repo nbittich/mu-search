@@ -1,3 +1,5 @@
+require_relative './index_definition.rb'
+
 module MuSearch
   module ConfigParser
 
@@ -49,7 +51,7 @@ module MuSearch
 
       config[:type_definitions] = Hash[
         json_config["types"].collect do |type_def|
-          [type_def["type"], IndexDefinition.new type_def]
+          [type_def["type"], MuSearch::IndexDefinition.from_json_def(type_def)]
         end
       ]
 

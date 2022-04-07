@@ -40,6 +40,7 @@ module MuSearch
       index_types.each do |index_type|
         @logger.info("UPDATE HANDLER") { "Updating document <#{document_id}> in indexes for type '#{index_type}'" }
         indexes = @index_manager.indexes[index_type]
+
         indexes.each do |_, index|
           type_def = @type_definitions[index_type]
           index_definitions = [type_def]
@@ -61,7 +62,7 @@ module MuSearch
           if document_exists_for? allowed_groups, document_id, type
             @logger.info("UPDATE HANDLER") { "Document <#{document_id}> needs to be updated in index #{index.name} for '#{index_type}' and allowed groups #{allowed_groups}" }
             exact_types = find_document_exact_types allowed_groups, document_id
-            properties = index_definitions.find {|item| exact_types.include?(item["rdf_type"])}["properties"]
+          
 
             @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
               document_builder = MuSearch::DocumentBuilder.new(
@@ -70,8 +71,27 @@ module MuSearch
                 attachment_path_base: @attachment_path_base,
                 logger: @logger
               )
-              
-              #properties = @type_definitions[index_type]["properties"] 
+              definition = nil
+              index_definitions.each do |item|
+                rdf_type = item["rdf_type"]
+                if exact_types.include?(rdf_type) 
+                  definition = item
+                  break
+                end
+              end
+              if definition.nil?
+                index_definitions.each do |item|
+                  sub_types = item["sub_types"]
+                  unless sub_types.nil? || !sub_types.is_a?(Array)
+                    intersect = (sub_types & exact_types)
+                    if intersect.length
+                      definition = item
+                      break
+                    end
+                  end
+                end
+              end
+              properties = definition["properties"]
               document = document_builder.fetch_document_to_index(uri: document_id, properties: properties)
 
               @elasticsearch.upsert_document index.name, document_id, document
@@ -104,6 +124,7 @@ module MuSearch
         {
           "type" => simple_type,
           "rdf_type" => simple_type_def["rdf_type"],
+          "sub_types" => simple_type_def["sub_types"],
           "properties" => Hash[properties]
         }
       end

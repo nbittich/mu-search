@@ -18,7 +18,7 @@ module MuSearch
       @attachment_path_base = search_configuration[:attachment_path_base]
 
       type_def = @configuration[:type_definitions][search_index.type_name]
-      if type_def["composite_types"] and type_def["composite_types"].length
+      if type_def.is_composite_index?
         @index_definitions = expand_composite_type_definition type_def
       else
         @index_definitions = [type_def]

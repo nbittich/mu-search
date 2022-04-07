@@ -196,23 +196,22 @@ module MuSearch
       type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
       composite_type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
 
-      type_definitions.reject{ |type, config| !config.has_key?("composite_types")}.each do |type, config|
+      type_definitions.select{ |type, config| config.is_composite_index? }.each do |type, config|
         comp_type = config["composite_types"]
         comp_type.each do |ct|
           composite_type_map[ct] << type
         end
       end
 
-
-      type_definitions.reject{ |type, config| config.has_key?("composite_types")}.each do |type, config|
+      type_definitions.select{ |type, config| config.is_regular_index? }.each do |type, config|
         rdf_type = config["rdf_type"]
         sub_types = config["sub_types"]
         comp_type = composite_type_map[type]
 
         unless sub_types.nil? || !sub_types.is_a?(Array)
-          sub_types.each do |t| 
+          sub_types.each do |t|
             type_map[t] << { type_name: type, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
-            unless comp_type.nil? 
+            unless comp_type.nil?
               comp_type.each do |ct|
                 type_map[t] << { type_name: ct, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
               end
@@ -220,7 +219,7 @@ module MuSearch
           end
         end
         type_map[rdf_type] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ RDF.type.to_s ] }
-        unless comp_type.nil? 
+        unless comp_type.nil?
           comp_type.each do |ct|
             type_map[rdf_type] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [ RDF.type.to_s ] }
           end
@@ -237,14 +236,14 @@ module MuSearch
       property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
       composite_type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
 
-      type_definitions.reject{ |type, config| !config.has_key?("composite_types")}.each do |type, config|
+      type_definitions.select{ |type, config| config.is_composite_index?}.each do |type, config|
         comp_type = config["composite_types"]
         comp_type.each do |ct|
           composite_type_map[ct] << type
         end
       end
 
-      type_definitions.reject{ |type, config| config.has_key?("composite_types")}.each do |type, config|
+      type_definitions.select{ |type, config| config.is_regular_index?}.each do |type, config|
         config["properties"].each do |key, value|
           sub_types = config["sub_types"]
           rdf_type = config["rdf_type"]
@@ -254,15 +253,15 @@ module MuSearch
           if value.kind_of?(Array)
             value.each do |property|
               property_map[property] << { type_name: type, rdf_type: rdf_type, rdf_properties: value }
-              unless comp_type.nil? 
+              unless comp_type.nil?
                 comp_type.each do |ct|
                   property_map[property] << { type_name: ct, rdf_type: rdf_type, rdf_properties: value }
                 end
               end
               unless sub_types.nil? || !sub_types.is_a?(Array)
-                sub_types.each do |t| 
+                sub_types.each do |t|
                   property_map[property] << { type_name: type, rdf_type: t, rdf_properties: value }
-                  unless comp_type.nil? 
+                  unless comp_type.nil?
                     comp_type.each do |ct|
                       property_map[property] << { type_name: ct, rdf_type: t, rdf_properties: value }
                     end
@@ -272,15 +271,15 @@ module MuSearch
             end
           else
             property_map[value] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ value ] }
-            unless comp_type.nil? 
+            unless comp_type.nil?
               comp_type.each do |ct|
                 property_map[value] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [value] }
               end
             end
             unless sub_types.nil? || !sub_types.is_a?(Array)
-              sub_types.each do |t| 
+              sub_types.each do |t|
                 property_map[value] << { type_name: type, rdf_type: t, rdf_properties: [value] }
-                unless comp_type.nil? 
+                unless comp_type.nil?
                   comp_type.each do |ct|
                     property_map[value] << { type_name: ct, rdf_type: t, rdf_properties: [value] }
                   end

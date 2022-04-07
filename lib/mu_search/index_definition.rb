@@ -16,7 +16,7 @@ module MuSearch
           mappings: nil,
           settings: nil
         )
-      @type = type
+      @name = name
       @on_path = on_path
       @rdf_type = rdf_type
       @sub_types = ! sub_types.nil? && sub_types.kind_of?(Array) ? sub_types : []

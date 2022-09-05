@@ -154,6 +154,14 @@ module MuSearch
             errors << "invalid type definition for #{type["type"]}, missing key #{key}"
           end
         end
+
+        if type["rdf_type"].kind_of?(Array)
+          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} specifies multiple rdf types, this is experimental!" }
+          if type["rdf_type"].length == 0
+            errors << "#{type["type"]} has doesn't specify any rdf_type, the array is empty."
+          end
+        end
+
         unless type.has_key?("rdf_type") || type.has_key?("composite_types")
           errors << "type definition for #{type["type"]} must specify rdf_type or composite_types"
         end

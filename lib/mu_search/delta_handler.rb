@@ -190,39 +190,12 @@ module MuSearch
 
     ##
     # parses the search configuration and returns a map that links rdf types to their related indexes
-    # TODO add correct handling for composite_types
-    # TOOD add correct handling for nested_types
+    # TODO verify correct handling for nested_types
     def map_type_to_config(type_definitions)
       type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      composite_type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-
-      type_definitions.select{ |type, config| config.is_composite_index? }.each do |type, config|
-        comp_type = config["composite_types"]
-        comp_type.each do |ct|
-          composite_type_map[ct] << type
-        end
-      end
-
-      type_definitions.select{ |type, config| config.is_regular_index? }.each do |type, config|
-        rdf_type = config["rdf_type"]
-        sub_types = config["sub_types"]
-        comp_type = composite_type_map[type]
-
-        if config.has_sub_types?
-          sub_types.each do |t|
-            type_map[t] << { type_name: type, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
-            unless comp_type.nil?
-              comp_type.each do |ct|
-                type_map[t] << { type_name: ct, rdf_type: t, rdf_properties: [ RDF.type.to_s ] }
-              end
-            end
-          end
-        end
-        type_map[rdf_type] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ RDF.type.to_s ] }
-        unless comp_type.nil?
-          comp_type.each do |ct|
-            type_map[rdf_type] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [ RDF.type.to_s ] }
-          end
+      type_definitions.each do | name, config|
+        config.related_rdf_types.each do |type|
+          type_map[type] <<  { type_name: name , rdf_type: type, rdf_properties: [ RDF.type.to_s ] }
         end
       end
       type_map
@@ -230,62 +203,23 @@ module MuSearch
 
     ##
     # parses the search configuration and returns a map that links rdf predicates to their related indexes
-    # TODO add correct handling for composite_types
-    # TOOD add correct handling for nested_types
+    # TOOD verify correct handling for nested_types
     def map_property_to_config(type_definitions)
       property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      composite_type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-
-      type_definitions.select{ |type, config| config.is_composite_index?}.each do |type, config|
-        comp_type = config["composite_types"]
-        comp_type.each do |ct|
-          composite_type_map[ct] << type
-        end
-      end
-
-      type_definitions.select{ |type, config| config.is_regular_index?}.each do |type, config|
-        config["properties"].each do |key, value|
-          sub_types = config["sub_types"]
-          rdf_type = config["rdf_type"]
-          comp_type = composite_type_map[type]
-
+      type_definitions.each do |name, config|
+        config.properties.each do |key, value|
+          rdf_types = config.related_rdf_types
           value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
           if value.kind_of?(Array)
             value.each do |property|
-              property_map[property] << { type_name: type, rdf_type: rdf_type, rdf_properties: value }
-              unless comp_type.nil?
-                comp_type.each do |ct|
-                  property_map[property] << { type_name: ct, rdf_type: rdf_type, rdf_properties: value }
-                end
-              end
-              if config.has_sub_types?
-                sub_types.each do |t|
-                  property_map[property] << { type_name: type, rdf_type: t, rdf_properties: value }
-                  unless comp_type.nil?
-                    comp_type.each do |ct|
-                      property_map[property] << { type_name: ct, rdf_type: t, rdf_properties: value }
-                    end
-                  end
-                end
+              rdf_types.each do |type|
+                property_map[property] << { type_name: name, rdf_type: type, rdf_properties: value}
               end
             end
-          else
-            property_map[value] << { type_name: type, rdf_type: rdf_type, rdf_properties: [ value ] }
-            unless comp_type.nil?
-              comp_type.each do |ct|
-                property_map[value] << { type_name: ct, rdf_type: rdf_type, rdf_properties: [value] }
-              end
-            end
-            if config.has_sub_types?
-              sub_types.each do |t|
-                property_map[value] << { type_name: type, rdf_type: t, rdf_properties: [value] }
-                unless comp_type.nil?
-                  comp_type.each do |ct|
-                    property_map[value] << { type_name: ct, rdf_type: t, rdf_properties: [value] }
-                  end
-                end
-              end
-            end
+          end
+        else
+          rdf_types.each do |type|
+            property_map[value] << { type_name: name, rdf_type: type, rdf_properties: [ value ] }
           end
         end
       end

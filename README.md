@@ -467,16 +467,20 @@ Attachments processed by Tika are cached in the directory `/cache` (by SHA256 of
 
 See also "How to specify a file's content as property".
 
-##### [Experimental] Inheritance
+##### [Experimental] Combining resources of multiple types into one index
+It's possible to map several resources of different rdf classes onto one index where that makes sense, e.g. if they share the same properties.
+
 in config.json:
 ```
-      "rdf_type": "http://data.vlaanderen.be/ns/besluit#Bestuurseenheid",
-      "sub_types": [
+      "rdf_type": [
+        "http://data.vlaanderen.be/ns/besluit#Bestuurseenheid",
         "http://data.lblod.info/vocabularies/erediensten/CentraalBestuurVanDeEredienst",
         "http://data.lblod.info/vocabularies/erediensten/BestuurVanDeEredienst",
         "http://data.lblod.info/vocabularies/erediensten/RepresentatiefOrgaan"
       ],
 ```
+
+Note that this is different from a composite index, where each type has its own index, as well as being indexed in the composite index. Another difference is that the composite index allows mapping different properties from the sub indexes onto one property in the composite index.
 
 ##### [Experimental] Nested objects
 A search document can contain nested objects up to an arbitrary depth. For example for a person you can nest the address object as a property of the person search document.

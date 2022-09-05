@@ -4,22 +4,19 @@ module MuSearch
   # It was created mostly the abstract some of the complexity that composite and sub types introduce
   class IndexDefinition
     attr_reader :name, :on_path, :rdf_type, :properties, :mappings, :settings
-    attr_reader :sub_types, :composite_types
-
+    attr_reader :composite_types
     def initialize(
           name:,
           on_path:,
           rdf_type: nil,
           composite_types: nil,
-          sub_types: nil,
           properties:,
           mappings: nil,
           settings: nil
         )
       @name = name
       @on_path = on_path
-      @rdf_type = rdf_type
-      @sub_types = ! sub_types.nil? && sub_types.kind_of?(Array) ? sub_types : []
+      @rdf_type = rdf_type.kind_of?(Array) ? rdf_type : [rdf_type]
       @composite_types = ! composite_types.nil? && composite_types.kind_of(Array) ? composite_types : []
       @properties = properties
       @mappings = mappings
@@ -31,12 +28,11 @@ module MuSearch
     end
 
     def self.from_json_def(hash)
-      IndexDefinition.new(
+      IndexDefinition.new(upd
         name: hash["type"],
         on_path: hash["on_path"],
         rdf_type: hash["rdf_type"],
         composite_types: hash["composite_types"],
-        sub_types: hash["sub_types"],
         properties: hash["properties"],
         mappings: hash["mappings"],
         settings: hash["settings"]
@@ -47,14 +43,24 @@ module MuSearch
       @name
     end
 
-    def has_sub_types?
-      return @sub_types.length > 0
+    def has_multiple_types?
+      return @type.kind_of?(Array) && @type.length > 0
+    end
+
+    # checks if there is any overlap between the rdf types used in this definition and the provided rdf_types
+    # always returns false for composite indexes
+    def contains_any_type_of(resource_rdf_types)
+      if is_composite_index?
+        false
+      else
+        ! (this.rdf_types & resource_rdf_types).empty?
+      end
     end
 
     # an index definition is for a composite index if it is composed of several types
-    # this means the actual definition 
+    # this means the actual definition
     def is_composite_index?
-      return @composite_types.length > 0
+      return @composite_types.kind_of?(Array) && @composite_types.length > 0
     end
 
     # an index defition is for a regular index if an rdf_type is specified
@@ -64,6 +70,15 @@ module MuSearch
 
     def to_s
       "Index definition: {@name: #{name}, @on_path: #{on_path}}"
+    end
+
+    # lists rdf types defined on this index, or on any subindex for composite indexes
+    def related_rdf_types
+      if is_regular_index?
+        this.rdf_type
+      else
+        this.composite_types.map(&:related_rdf_types).flatten
+      end
     end
 
     # allow the index definition to be used as a hash
@@ -77,8 +92,6 @@ module MuSearch
         @rdf_type
       when "on_path"
         @on_path
-      when "sub_types"
-        @sub_types
       when "composite_types"
         @composite_types
       when "properties"

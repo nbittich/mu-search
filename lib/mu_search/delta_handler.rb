@@ -81,7 +81,7 @@ module MuSearch
     # i.e. the object is an rdf:Class that is configured as search index
     #      or the predicate is included in one of the property (paths) of a search index.
     # Returns a set of impacted search configs.
-    # Each config contains keys :type_name, :rdf_type, :rdf_properties
+    # Each config contains keys :type_name, :rdf_types, :rdf_properties
     def applicable_index_configurations_for_triple(triple)
       predicate = triple["predicate"][ "value"]
       if predicate == RDF.type.to_s
@@ -150,7 +150,7 @@ module MuSearch
     # Returns an array of subject URIs as strings.
     # Returns an empty array if no subjects are found.
     def query_for_subjects_to_triple(triple, config, i, is_inverse, is_addition)
-      rdf_type = config[:rdf_type]
+      rdf_types = config[:rdf_types]
       rdf_properties = config[:rdf_properties]
       property_path_to_target = rdf_properties.take(i) # path from start to the triple, excluding the triple itself
       property_path_from_target = rdf_properties.slice(i + 1, rdf_properties.length - i) # path from the triple until the end
@@ -171,7 +171,8 @@ module MuSearch
 
       sparql_query = "SELECT DISTINCT ?s WHERE {\n"
       sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n" if is_addition
-      sparql_query += "\t ?s a #{sparql_escape_uri(rdf_type)} . \n"
+      sparql_query += "\t ?s a ?type. \n"
+      sparql_query += "FILTER(?type IN (#{rdf_types.map{ |rdf_type| sparql_escape_uri(rdf_type)}.join(',')})) . \n"
       # Check path from start to the triple
       if property_path_to_target.length == 0
         # triple is at the root. We only need to check if it has the correct rdf_type
@@ -195,7 +196,8 @@ module MuSearch
       type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
       type_definitions.each do | name, config|
         config.related_rdf_types.each do |type|
-          type_map[type] <<  { type_name: name , rdf_type: type, rdf_properties: [ RDF.type.to_s ] }
+          # we also include all types here to be consistent with the property map
+          type_map[type] <<  { type_name: name , rdf_types: config.related_rdf_types, rdf_properties: [ RDF.type.to_s ] }
         end
       end
       type_map
@@ -212,14 +214,10 @@ module MuSearch
           value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
           if value.kind_of?(Array)
             value.each do |property|
-              rdf_types.each do |type|
-                property_map[property] << { type_name: name, rdf_type: type, rdf_properties: value}
-              end
+              property_map[property] << { type_name: name, rdf_types: rdf_types, rdf_properties: value}
             end
-          end
-        else
-          rdf_types.each do |type|
-            property_map[value] << { type_name: name, rdf_type: type, rdf_properties: [ value ] }
+          else
+            property_map[value] << { type_name: name, rdf_types: rdf_types, rdf_properties: [ value ] }
           end
         end
       end

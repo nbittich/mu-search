@@ -4,6 +4,7 @@ module MuSearch
   # It was created mostly the abstract some of the complexity that composite and sub types introduce
   class IndexDefinition
     attr_reader :name, :on_path, :rdf_type, :properties, :mappings, :settings
+    # composite types are fake/intermediate index definitions
     attr_reader :composite_types
     def initialize(
           name:,
@@ -16,8 +17,10 @@ module MuSearch
         )
       @name = name
       @on_path = on_path
-      @rdf_type = rdf_type.kind_of?(Array) ? rdf_type : [rdf_type]
-      @composite_types = ! composite_types.nil? && composite_types.kind_of(Array) ? composite_types : []
+      unless rdf_type.nil?
+        @rdf_type = rdf_type.kind_of?(Array) ? rdf_type : [rdf_type]
+      end
+      @composite_types = ! composite_types.nil? && composite_types.is_a?(Array) ? composite_types : []
       @properties = properties
       @mappings = mappings
       @settings = settings
@@ -27,16 +30,51 @@ module MuSearch
       end
     end
 
-    def self.from_json_def(hash)
-      IndexDefinition.new(upd
-        name: hash["type"],
-        on_path: hash["on_path"],
-        rdf_type: hash["rdf_type"],
-        composite_types: hash["composite_types"],
-        properties: hash["properties"],
-        mappings: hash["mappings"],
-        settings: hash["settings"]
-      )
+    def self.create_composite_sub_definitions(composite_definition, definitions)
+      sub_def_names = composite_definition["composite_types"]
+      sub_definitions = definitions.map do |index_definition|
+        name = index_definition["type"]
+        next unless sub_def_names.include?(name)
+        properties = Hash.new
+        composite_definition["properties"].each do |composite_prop|
+          property_name = composite_prop["name"]
+          mapped_name = composite_prop.dig('mappings', name)
+          if mapped_name
+            properties[property_name] = index_definition.dig("properties", mapped_name)
+          else
+            properties[property_name] = index_definition.dig("properties", property_name)
+          end
+        end
+
+        CompositeSubIndexDefinition.new(
+          name: name,
+          rdf_type: index_definition["rdf_type"],
+          properties: properties
+        )
+      end
+      sub_definitions.reject{ |sub| sub.nil?  }
+    end
+
+    # builds a tuples mapping the index name to the full definition for all provided types
+    # expects all types as param
+    def self.from_json_config(all_definitions)
+      all_definitions.collect do |definition|
+        name = definition["type"]
+        composite_types = []
+        if definition["composite_types"]
+          composite_types = create_composite_sub_definitions(definition, all_definitions)
+        end
+        index_definition = IndexDefinition.new(
+          name: name,
+          on_path: definition["on_path"],
+          rdf_type: definition["rdf_type"],
+          composite_types: composite_types,
+          properties: definition["properties"],
+          mappings: definition["mappings"],
+          settings: definition["settings"]
+        )
+        [name, index_definition]
+      end
     end
 
     def type
@@ -44,7 +82,7 @@ module MuSearch
     end
 
     def has_multiple_types?
-      return @type.kind_of?(Array) && @type.length > 0
+      return @rdf_type.kind_of?(Array) && @rdf_type.length > 0
     end
 
     # checks if there is any overlap between the rdf types used in this definition and the provided rdf_types
@@ -53,7 +91,7 @@ module MuSearch
       if is_composite_index?
         false
       else
-        ! (this.rdf_types & resource_rdf_types).empty?
+        ! (self.rdf_types & resource_rdf_types).empty?
       end
     end
 
@@ -75,9 +113,9 @@ module MuSearch
     # lists rdf types defined on this index, or on any subindex for composite indexes
     def related_rdf_types
       if is_regular_index?
-        this.rdf_type
+        rdf_type
       else
-        this.composite_types.map(&:related_rdf_types).flatten
+        composite_types.map(&:related_rdf_types).flatten
       end
     end
 
@@ -103,6 +141,24 @@ module MuSearch
       else
         raise ArgumentError.new("#{name} is not accessible on #{self}")
       end
+    end
+  end
+
+  # class to represent a sub index of a composite index
+  # this applies the composite definition on the sub index.
+  # it's only meant to be used by the document_builder for constructing a document
+  class CompositeSubIndexDefinition
+    attr_reader :name, :rdf_type, :properties
+    def initialize(name:, rdf_type:, properties:)
+      @name = name
+      unless rdf_type.nil?
+        @rdf_type = rdf_type.kind_of?(Array) ? rdf_type : [rdf_type]
+      end
+      @properties = properties
+    end
+
+    def related_rdf_types
+      @rdf_type
     end
   end
 end

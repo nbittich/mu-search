@@ -19,7 +19,7 @@ module MuSearch
 
       type_def = @configuration[:type_definitions][search_index.type_name]
       if type_def.is_composite_index?
-        @index_definitions = expand_composite_type_definition type_def
+        @index_definitions = type_def.composite_types
       else
         @index_definitions = [type_def]
       end
@@ -36,14 +36,9 @@ module MuSearch
       # Note: @index_definitions will only contain multiple elements in case of a composite type.
       @index_definitions.each do |type_def|
         @logger.info("INDEXING") { "Building index of type #{type_def["type"]}" }
-        rdf_type = type_def["rdf_type"]
-        sub_types = type_def["sub_types"]
-        type = "<#{rdf_type}>"
-        if type_def.has_sub_types?
-          type = type + "," + sub_types.map{|t| "<#{t}>"}.join(",")
-        end
-        number_of_documents = count_documents(type)
-        @logger.info("INDEXING") { "Found #{number_of_documents} documents to index of type #{rdf_type} with allowed groups #{@search_index.allowed_groups}" }
+        rdf_types = type_def.related_rdf_types
+        number_of_documents = count_documents(rdf_types)
+        @logger.info("INDEXING") { "Found #{number_of_documents} documents to index of type #{rdf_types.join(',')} with allowed groups #{@search_index.allowed_groups}" }
         batches =
           if @max_batches and @max_batches != 0
             [@max_batches, number_of_documents/@batch_size].min
@@ -65,7 +60,7 @@ module MuSearch
               attachment_path_base: @attachment_path_base,
               logger: @logger
             )
-            document_uris = get_documents_for_batch type, i
+            document_uris = get_documents_for_batch(rdf_types, i)
             document_uris.each do |document_uri|
               @logger.debug("INDEXING") { "Indexing document #{document_uri} in batch #{i}" }
               document = document_builder.fetch_document_to_index(
@@ -89,44 +84,21 @@ module MuSearch
 
 
     private
-
-    # Expands the type definition of a composite type.
-    # Returns an array of type definitions, one per simple type that constitutes the composite type
-    # with the properties resolved based on the properties mapping of the composite type.
-    #
-    # See the README for an example of a composite type configuration.
-    def expand_composite_type_definition composite_type_def
-      simple_types = composite_type_def["composite_types"]
-      simple_types.map do |simple_type|
-        simple_type_def = @configuration[:type_definitions][simple_type]
-        properties = composite_type_def["properties"].map do |composite_prop|
-          property_name = composite_prop["name"]
-          mapped_name = composite_prop["mappings"] && composite_prop["mappings"][simple_type]
-          mapped_name = composite_prop["name"] if mapped_name.nil?
-          property_def = simple_type_def["properties"][mapped_name]
-          [property_name, property_def]
-        end
-        {
-          "type" => simple_type,
-          "rdf_type" => simple_type_def["rdf_type"],
-          "properties" => Hash[properties]
-        }
-      end
-    end
-
-    def count_documents(type)
+    def count_documents(types)
       @sparql_connection_pool.with_authorization(@search_index.allowed_groups) do |client|
-        query = "SELECT (COUNT(?doc) as ?count) WHERE { ?doc a ?type. filter(?type in(#{type})) }"
+        type_string = types.map{ |type| ::SinatraTemplate::Utils.sparql_escape_uri(type) }.join(',')
+        query = "SELECT (COUNT(?doc) as ?count) WHERE { ?doc a ?type. filter(?type in(#{type_string})) }"
         result = client.query(query)
         documents_count = result.first["count"].to_i
         documents_count
       end
     end
 
-    def get_documents_for_batch(type, batch_i)
+    def get_documents_for_batch(types, batch_i)
       offset = (batch_i - 1) * @batch_size
+      type_string = types.map{ |type| ::SinatraTemplate::Utils.sparql_escape_uri(type) }.join(',')
       @sparql_connection_pool.with_authorization(@search_index.allowed_groups) do |client|
-        query = "SELECT DISTINCT ?doc WHERE { ?doc a ?type. filter(?type in(#{type}))  } LIMIT #{@batch_size} OFFSET #{offset}"
+        query = "SELECT DISTINCT ?doc WHERE { ?doc a ?type. filter(?type in(#{type_string}))  } LIMIT #{@batch_size} OFFSET #{offset}"
         result = client.query(query)
         document_uris = result.map { |r| r[:doc].to_s }
         @logger.debug("INDEXING") { "Selected documents for batch #{batch_i}: #{document_uris}" }

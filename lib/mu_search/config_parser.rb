@@ -49,12 +49,7 @@ module MuSearch
         config[:eager_indexing_groups]  = json_config["eager_indexing_groups"]
       end
 
-      config[:type_definitions] = Hash[
-        json_config["types"].collect do |type_def|
-          [type_def["type"], MuSearch::IndexDefinition.from_json_def(type_def)]
-        end
-      ]
-
+      config[:type_definitions] = Hash[MuSearch::IndexDefinition.from_json_config(json_config["types"])]
       config
     end
 

@@ -157,25 +157,14 @@ module MuSearch
           end
         end
 
-        unless type.has_key?("rdf_type") || type.has_key?("composite_types")
+        unless type["rdf_type"] || type["composite_types"]
           errors << "type definition for #{type["type"]} must specify rdf_type or composite_types"
         end
 
         if type.has_key?("composite_types")
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type, support for composite types is experimental!"}
-          undefined_types = type["composite_types"].select{ |type| ! types.include?(type)}
-          if undefined_types.length > 0
-            errors << "composite type #{type["type"]} refers to type(s) #{undefined_types} which don't exist"
-          end
-          if type["properties"].kind_of?(Array)
-            type["properties"].each do |prop, value|
-              unless prop.has_key?("name")
-                errors << "composite type #{type["type"]} has an invalid property: properties of a composite type should have a field 'name'"
-              end
-            end
-          else
-            errors << "composite type #{type["type"]}: properties should be an array"
-          end
+          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type,
+support for composite types is experimental!"}
+          errors.concat(validate_composite_type(type, types))
         end
 
         if type.has_key?("mappings")
@@ -189,6 +178,27 @@ module MuSearch
       errors
     end
 
+    def self.validate_composite_type(type, types)
+      errors = []
+      unless type["composite_types"].is_a?(Array)
+        errors << "composite type #{type["type"]} is not correctly specified field 'composite_types' should be an array"
+      end
+      undefined_types = type["composite_types"].select{ |type| ! types.include?(type)}
+      if undefined_types.length > 0
+        errors << "composite type #{type["type"]} refers to type(s) #{undefined_types} which don't exist"
+      end
+      if type["properties"].kind_of?(Array)
+        type["properties"].each do |prop, value|
+          unless prop.has_key?("name")
+            errors << "composite type #{type["type"]} has an invalid property: properties of a composite type should have a field 'name'"
+          end
+        end
+      else
+        errors << "composite type #{type["type"]}: properties should be an array"
+      end
+
+      errors
+    end
     ##
     # do some basic config validation to make debugging a faulty eager_indexing config easier
     #

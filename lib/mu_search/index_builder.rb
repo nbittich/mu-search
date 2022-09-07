@@ -35,7 +35,7 @@ module MuSearch
     def build
       # Note: @index_definitions will only contain multiple elements in case of a composite type.
       @index_definitions.each do |type_def|
-        @logger.info("INDEXING") { "Building index of type #{type_def["type"]}" }
+        @logger.info("INDEXING") { "Building index of type #{type_def.rdf_type}" }
         rdf_types = type_def.related_rdf_types
         number_of_documents = count_documents(rdf_types)
         @logger.info("INDEXING") { "Found #{number_of_documents} documents to index of type #{rdf_types.join(',')} with allowed groups #{@search_index.allowed_groups}" }
@@ -65,7 +65,7 @@ module MuSearch
               @logger.debug("INDEXING") { "Indexing document #{document_uri} in batch #{i}" }
               document = document_builder.fetch_document_to_index(
                 uri: document_uri,
-                properties: type_def["properties"])
+                properties: type_def.properties)
               @elasticsearch.insert_document @search_index.name, document_uri, document
             rescue StandardError => e
               failed_documents << document_uri

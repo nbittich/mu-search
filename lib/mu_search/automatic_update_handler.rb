@@ -62,10 +62,11 @@ module MuSearch
               @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
                 properties = index_definition.properties
                 document = document_builder.fetch_document_to_index(uri: document_id, properties: properties)
+                @logger.debug ("UPDATE_HANDLER") { document.pretty_inspect}
                 @elasticsearch.upsert_document index.name, document_id, document
               end
             else
-              @logger.info("UPDATE HANDLER") { "Document <#{document_id}> not accessible or already removed in triplestore for allowed groups #{allowed_groups}. Removing document from Elasticsearch index #{index.name} as well." }
+              @logger.info("UPDATE HANDLER") { "Document <#{document_id}> (type #{index_type}) not accessible or already removed in triplestore for allowed groups #{allowed_groups}. Removing document from Elasticsearch index #{index.name} as well." }
               begin
                 @elasticsearch.delete_document index.name, document_id
               rescue

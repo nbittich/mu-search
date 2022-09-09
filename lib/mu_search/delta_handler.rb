@@ -209,19 +209,30 @@ module MuSearch
     def map_property_to_config(type_definitions)
       property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
       type_definitions.each do |name, config|
-        config.properties.each do |key, value|
-          rdf_types = config.related_rdf_types
-          value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
-          if value.kind_of?(Array)
-            value.each do |property|
-              property_map[property] << { type_name: name, rdf_types: rdf_types, rdf_properties: value}
-            end
-          else
-            property_map[value] << { type_name: name, rdf_types: rdf_types, rdf_properties: [ value ] }
+        if config.is_composite_index?
+          config.composite_types.each do |sub_definition|
+            add_properties_to_map(sub_definition.properties, sub_definition.related_rdf_types, name, property_map)
           end
+        else
+          add_properties_to_map(config.properties, config.related_rdf_types, name, property_map)
         end
       end
       property_map
+    end
+
+    ##
+    # internals of map_property_to_config
+    def add_properties_to_map(properties,rdf_types, index_name, property_map)
+      properties.each do |key, value|
+        value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
+        if value.kind_of?(Array)
+          value.each do |property|
+            property_map[property] << { type_name: index_name, rdf_types: rdf_types, rdf_properties: value}
+          end
+        else
+          property_map[value] << { type_name: index_name, rdf_types: rdf_types, rdf_properties: [ value ] }
+        end
+      end
     end
   end
 end

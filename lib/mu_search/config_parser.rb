@@ -46,7 +46,7 @@ module MuSearch
       # the following settings can only be configured via the json file
       config[:default_index_settings] = json_config["default_settings"] || {}
       if json_config["eager_indexing_groups"]
-        config[:eager_indexing_groups]  = json_config["eager_indexing_groups"]
+        config[:eager_indexing_groups] = json_config["eager_indexing_groups"]
       end
 
       config[:type_definitions] = Hash[MuSearch::IndexDefinition.from_json_config(json_config["types"])]
@@ -61,7 +61,7 @@ module MuSearch
 
     def self.parse_string_array(*possible_values)
       as_type(*possible_values) do |val|
-        val.each { |s| s.to_s }
+        val.each(&:to_s)
       end
     end
 
@@ -80,7 +80,7 @@ module MuSearch
     def self.parse_boolean(*possible_values)
       as_type(*possible_values) do |val|
         if val.kind_of?(String) && ! val.strip.empty?
-          ["true","True","TRUE"].include?(val)
+          ["true", "True", "TRUE"].include?(val)
         else
           val
         end
@@ -107,7 +107,7 @@ module MuSearch
 
     def self.validate_config(json_config)
       errors = []
-      if  ! json_config.has_key?("persist_indexes") || ! json_config["persist_indexes"]
+      if ! json_config.has_key?("persist_indexes") || ! json_config["persist_indexes"]
         SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "persist_indexes is disabled, indexes will be removed from elastic on restart!" }
       end
       if json_config.has_key?("eager_indexing_groups")
@@ -130,14 +130,14 @@ module MuSearch
     def self.validate_type_definitions(type_definitions)
       errors = []
 
-      types = type_definitions.map{ |t| t["type"] }
-      double_keys = types.select{ |e| types.count(e) > 1 } # not very performant, but should be small array anyway
+      types = type_definitions.map { |t| t["type"] }
+      double_keys = types.select { |e| types.count(e) > 1 } # not very performant, but should be small array anyway
       if double_keys.length > 0
         errors << "the following types are defined more than once: #{double_keys}"
       end
 
-      paths = type_definitions.map{ |t| t["on_path"] }
-      double_keys = paths.select{ |e| paths.count(e) > 1 }
+      paths = type_definitions.map { |t| t["on_path"] }
+      double_keys = paths.select { |e| paths.count(e) > 1 }
       if double_keys.length > 0
         errors << "the following paths are defined more than once: #{double_keys}"
       end
@@ -163,7 +163,6 @@ module MuSearch
 
         if type.has_key?("composite_types")
           SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type,
-support for composite types is experimental!"}
           errors.concat(validate_composite_type(type, types))
         end
 
@@ -172,7 +171,7 @@ support for composite types is experimental!"}
             errors << "type definition for #{type["type"]} has an index specific mapping, but the mapping does not have the properties field."
           end
         else
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") {"field mappings not set for type #{type["type"]}, you may want to add an index specific mapping."}
+          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "field mappings not set for type #{type["type"]}, you may want to add an index specific mapping." }
         end
       end
       errors

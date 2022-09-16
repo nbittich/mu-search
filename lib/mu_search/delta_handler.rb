@@ -9,12 +9,11 @@ module MuSearch
   # NOTE: in theory the handler has a pretty good idea what has changed
   #       it may be possible to have finer grained updates on es documents than we currently have
   class DeltaHandler
-
     ##
     # creates a delta handler
     #
     # raises an error if an invalid search config is provided
-    def initialize(logger:, sparql_connection_pool:, search_configuration:, update_handler: )
+    def initialize(logger:, sparql_connection_pool:, search_configuration:, update_handler:)
       @logger = logger
       @sparql_connection_pool = sparql_connection_pool
       type_definitions = search_configuration[:type_definitions]
@@ -83,9 +82,9 @@ module MuSearch
     # Returns a set of impacted search configs.
     # Each config contains keys :type_name, :rdf_types, :rdf_properties
     def applicable_index_configurations_for_triple(triple)
-      predicate = triple["predicate"][ "value"]
+      predicate = triple["predicate"]["value"]
       if predicate == RDF.type.to_s
-        rdf_type = triple["object"][ "value"]
+        rdf_type = triple["object"]["value"]
         @type_to_config_map[rdf_type]
       else
         @property_to_config_map[predicate] + @property_to_config_map["^#{predicate}"]
@@ -103,7 +102,7 @@ module MuSearch
     def find_root_subjects_for_triple(triple, config, is_addition = true)
       # NOTE: current logic assumes rdf:type is never part of the property path
       if triple["predicate"]["value"] == RDF.type.to_s
-        [ triple["subject"]["value"] ]
+        [triple["subject"]["value"]]
       else
         find_subjects_for_property(triple, config, is_addition)
       end
@@ -127,11 +126,11 @@ module MuSearch
       config[:rdf_properties].each_with_index do |property, i|
         if [predicate, "^#{predicate}"].include?(property)
           is_inverse = property.start_with? "^"
-          if i < nb_of_hops - 1 and !is_inverse and object_type != "uri"
+          if (i < nb_of_hops - 1) && !is_inverse && (object_type != "uri")
             # we are not at the end of the path and the object is a literal
             @logger.debug("DELTA") { "Discarding path because object is not a URI, but #{object_type}" }
           else
-            subjects.concat( query_for_subjects_to_triple(triple, config, i, is_inverse, is_addition) )
+            subjects.concat(query_for_subjects_to_triple(triple, config, i, is_inverse, is_addition))
           end
         end
       end

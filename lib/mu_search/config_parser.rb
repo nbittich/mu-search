@@ -162,7 +162,7 @@ module MuSearch
         end
 
         if type.has_key?("composite_types")
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type,
+          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type, support for composite types is experimental!"}
           errors.concat(validate_composite_type(type, types))
         end
 

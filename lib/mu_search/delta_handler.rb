@@ -1,4 +1,5 @@
 require 'set'
+require 'pp'
 
 module MuSearch
   ##
@@ -16,9 +17,7 @@ module MuSearch
     def initialize(logger:, sparql_connection_pool:, search_configuration:, update_handler:)
       @logger = logger
       @sparql_connection_pool = sparql_connection_pool
-      type_definitions = search_configuration[:type_definitions]
-      @type_to_config_map = map_type_to_config(type_definitions)
-      @property_to_config_map = map_property_to_config(type_definitions)
+      @type_definitions = search_configuration[:type_definitions]
       @update_handler = update_handler
     end
 
@@ -27,19 +26,19 @@ module MuSearch
     # Assumes delta format v0.0.1
     # TODO add support for other delta formats
     def handle_deltas(deltas)
-      @logger.info("DELTA") { "Received delta update #{deltas}" }
+      @logger.info("DELTA") { "Received delta update #{deltas.pretty_inspect}" }
       if deltas.is_a?(Array)
         @logger.debug("DELTA") { "Delta contains #{deltas.length} changesets" }
         deltas.each do |changeset|
           changeset["inserts"].uniq.each do |triple|
             @logger.debug("DELTA") { "Handling inserted triple #{triple.inspect}" }
-            search_configs = applicable_index_configurations_for_triple triple
-            type_names = search_configs.map { |config| "'#{config[:type_name]}'" }
-            @logger.debug("DELTA") { "Triple affects all search indexes for #{type_names.join(', ')}" }
+            search_configs = applicable_index_configurations_for_triple(triple)
+            type_names = search_configs.map(&:name)
+            @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
             search_configs.each do |config|
-              subjects = find_root_subjects_for_triple(triple, config)
+              subjects = find_root_subjects_for_triple(triple, config).uniq
               if subjects.length
-                type_name = config[:type_name]
+                type_name = config.name
                 @logger.info("DELTA") { "Found #{subjects.length} subjects for '#{type_name}' that needs to be updated." }
                 subjects.each { |subject| @update_handler.add_update(subject, type_name) }
               end
@@ -50,17 +49,17 @@ module MuSearch
             @logger.debug("DELTA") { "Handling deleted triple #{triple.inspect}" }
             # for deletes the delete of a type triggers the delete of the document,
             # all other changes are considered an update
-            search_configs = applicable_index_configurations_for_triple triple
+            search_configs = applicable_index_configurations_for_triple(triple)
             search_configs.each do |config|
               if triple["predicate"]["value"] == RDF.type.to_s
-                type_name = config[:type_name]
+                type_name = config.name
                 subject = triple["subject"]["value"]
                 @logger.info("DELTA") { "#{subject} will be removed from indexes for '#{type_name}'." }
                 @update_handler.add_delete(subject, type_name)
               else
                 subjects = find_root_subjects_for_triple(triple, config, false)
                 if subjects.length
-                  type_name = config[:type_name]
+                  type_name = config.name
                   @logger.info("DELTA") { "Found #{subjects.length} subjects for '#{type_name}' that need to be updated." }
                   subjects.each { |subject| @update_handler.add_update(subject, type_name) }
                 end
@@ -85,9 +84,9 @@ module MuSearch
       predicate = triple["predicate"]["value"]
       if predicate == RDF.type.to_s
         rdf_type = triple["object"]["value"]
-        @type_to_config_map[rdf_type]
+        @type_definitions.select { |name, definition| definition.matches_type?(rdf_type) }.values
       else
-        @property_to_config_map[predicate] + @property_to_config_map["^#{predicate}"]
+        @type_definitions.select { |name, definition| definition.matches_property?(predicate) }.values
       end
     end
 
@@ -122,19 +121,30 @@ module MuSearch
       predicate = triple["predicate"]["value"]
       object_type = triple["object"]["type"]
       subjects = []
-      nb_of_hops = config[:rdf_properties].length
-      config[:rdf_properties].each_with_index do |property, i|
-        if [predicate, "^#{predicate}"].include?(property)
-          is_inverse = property.start_with? "^"
-          if (i < nb_of_hops - 1) && !is_inverse && (object_type != "uri")
-            # we are not at the end of the path and the object is a literal
-            @logger.debug("DELTA") { "Discarding path because object is not a URI, but #{object_type}" }
-          else
-            subjects.concat(query_for_subjects_to_triple(triple, config, i, is_inverse, is_addition))
+      matching_property_paths = config.full_property_paths_for(predicate)
+      matching_property_paths.each do |path|
+        path.each_with_index do |property, i|
+          if predicate_matches_property?(predicate, property)
+            if (i < path.length - 1) && !is_inverse?(property) && (object_type != "uri")
+              # we are not at the end of the path and the object is a literal
+              @logger.debug("DELTA") { "Discarding path because object is not a URI, but #{object_type}" }
+            else
+              subjects.concat(query_for_subjects_to_triple(triple, config.related_rdf_types, path, i, is_inverse?(property), is_addition))
+            end
           end
         end
       end
       subjects
+    end
+
+    # checks if a predicate or its inverse equals the property
+    def predicate_matches_property?(predicate, property)
+      [predicate, "^#{predicate}"].include?(property)
+    end
+
+    # check if the property is inverse
+    def is_inverse?(property)
+      property.start_with? "^"
     end
 
     ##
@@ -148,18 +158,15 @@ module MuSearch
     #
     # Returns an array of subject URIs as strings.
     # Returns an empty array if no subjects are found.
-    def query_for_subjects_to_triple(triple, config, i, is_inverse, is_addition)
-      rdf_types = config[:rdf_types]
-      rdf_properties = config[:rdf_properties]
-      property_path_to_target = rdf_properties.take(i) # path from start to the triple, excluding the triple itself
-      property_path_from_target = rdf_properties.slice(i + 1, rdf_properties.length - i) # path from the triple until the end
-
+    def query_for_subjects_to_triple(triple, rdf_types, path, i, is_inverse, is_addition)
+      property_path_to_target = path.take(i) # path from start to the triple, excluding the triple itself
+      property_path_from_target = path.drop(i + 1) # path from the triple until the end
       subject_value = triple["subject"]["value"]
       predicate_value = triple["predicate"]["value"]
       object_value = triple["object"]["value"]
       object_type = triple["object"]["type"]
 
-      # escaping values for useage in the SPARQL query
+      # escaping values for usage in the SPARQL query
       path_to_target_term = MuSearch::SPARQL::make_predicate_string(property_path_to_target)
       path_from_target_term = MuSearch::SPARQL::make_predicate_string(property_path_from_target)
       object_term = object_type == "uri" ? sparql_escape_uri(object_value) : %(""#{object_value.sparql_escape}"")
@@ -169,7 +176,6 @@ module MuSearch
       target_object_term = is_inverse ? sparql_escape_uri(subject_value) : object_term
 
       sparql_query = "SELECT DISTINCT ?s WHERE {\n"
-      sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n" if is_addition
       sparql_query += "\t ?s a ?type. \n"
       sparql_query += "FILTER(?type IN (#{rdf_types.map{ |rdf_type| sparql_escape_uri(rdf_type)}.join(',')})) . \n"
       # Check path from start to the triple
@@ -179,6 +185,7 @@ module MuSearch
       else
         sparql_query += "\t ?s #{path_to_target_term} #{target_subject_term} . \n"
       end
+      sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n" if is_addition
       # Check path from the triple to the end
       if is_addition && property_path_from_target.length > 0
         sparql_query += "\t #{target_object_term} #{path_from_target_term} ?foo. \n"
@@ -186,52 +193,6 @@ module MuSearch
       sparql_query += "}"
 
       @sparql_connection_pool.sudo_query(sparql_query).map { |result| result["s"].to_s }
-    end
-
-    ##
-    # parses the search configuration and returns a map that links rdf types to their related indexes
-    # TODO verify correct handling for nested_types
-    def map_type_to_config(type_definitions)
-      type_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      type_definitions.each do | name, config|
-        config.related_rdf_types.each do |type|
-          # we also include all types here to be consistent with the property map
-          type_map[type] <<  { type_name: name , rdf_types: config.related_rdf_types, rdf_properties: [ RDF.type.to_s ] }
-        end
-      end
-      type_map
-    end
-
-    ##
-    # parses the search configuration and returns a map that links rdf predicates to their related indexes
-    # TOOD verify correct handling for nested_types
-    def map_property_to_config(type_definitions)
-      property_map = Hash.new{ |hash, key| hash[key] = Set.new } # has a set as default value for each key
-      type_definitions.each do |name, config|
-        if config.is_composite_index?
-          config.composite_types.each do |sub_definition|
-            add_properties_to_map(sub_definition.properties, sub_definition.related_rdf_types, name, property_map)
-          end
-        else
-          add_properties_to_map(config.properties, config.related_rdf_types, name, property_map)
-        end
-      end
-      property_map
-    end
-
-    ##
-    # internals of map_property_to_config
-    def add_properties_to_map(properties,rdf_types, index_name, property_map)
-      properties.each do |key, value|
-        value = value["via"] if value.kind_of?(Hash) and !value["via"].nil?
-        if value.kind_of?(Array)
-          value.each do |property|
-            property_map[property] << { type_name: index_name, rdf_types: rdf_types, rdf_properties: value}
-          end
-        else
-          property_map[value] << { type_name: index_name, rdf_types: rdf_types, rdf_properties: [ value ] }
-        end
-      end
     end
   end
 end

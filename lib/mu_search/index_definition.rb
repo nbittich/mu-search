@@ -24,7 +24,8 @@ module MuSearch
       @properties = properties
       @mappings = mappings
       @settings = settings
-
+      @property_path_cache = Hash.new { |hash, key| hash[key] = Set.new  }
+      build_property_paths
       if is_composite_index? and is_regular_index?
         raise "invalid type definition for #{type}. Composite indexes can't have a rdf_type"
       end
@@ -119,6 +120,20 @@ module MuSearch
       end
     end
 
+    def matches_type?(type)
+      related_rdf_types.include?(rdf_type)
+    end
+
+    def matches_property?(property)
+      @property_path_cache.keys.include?(property) || @property_path_cache.keys.include?("^#{property}")
+    end
+
+    def full_property_paths_for(property)
+      if @property_path_cache.has_key?(property)
+        return @property_path_cache[property] + @property_path_cache["^#{property}"]
+      end
+    end
+
     # allow the index definition to be used as a hash
     # this is provided for backwards compatibility
     # which is why it also uses the json keys for some fields
@@ -140,6 +155,33 @@ module MuSearch
         @settings
       else
         raise ArgumentError.new("#{name} is not accessible on #{self}")
+      end
+    end
+
+    private
+    def build_property_paths
+      if is_regular_index?
+        build_property_paths_for_properties(properties)
+      else
+        composite_types.each do |sub_definition|
+          build_property_paths_for_properties(sub_definition.properties)
+        end
+      end
+    end
+
+    def build_property_paths_for_properties(properties)
+      properties.map do |prop_name, definition|
+        if definition.is_a?(Hash) and !definition["via"].nil?
+          definition = definition["via"]
+        end
+        if definition.is_a?(Array)
+          path = definition
+        else
+          path = [definition]
+        end
+        path.each do |property|
+          @property_path_cache[property] << path
+        end
       end
     end
   end

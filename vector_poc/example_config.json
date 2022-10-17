@@ -1,5 +1,6 @@
 {
     "automatic_index_updates": true,
+    "enable_raw_dsl_endpoint": true,
     "persist_indexes": true,
     "number_of_threads": 11,
     "eager_indexing_groups": [

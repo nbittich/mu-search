@@ -28,6 +28,8 @@ module MuSearch
             index_value = build_file_field(prop_values)
           elsif prop_config["rdf_type"] # nested object
             index_value = build_nested_object(prop_values, prop_config["properties"])
+          elsif prop_config["vector_dense"]
+            index_value = build_vector_dense_property(prop_values)
           else
             raise "Invalid configuration for property #{key}. If the property configuration is a hash, it must either be a file field or nested object configuration."
           end
@@ -85,6 +87,15 @@ SPARQL
           value.to_s
         else
           value.to_s
+        end
+      end
+    end
+
+    def build_vector_dense_property( values )
+      build_simple_property( values ).collect do |value|
+        json = JSON.parse value
+        json.collect do |v|
+          v.to_f
         end
       end
     end

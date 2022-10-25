@@ -1,3 +1,5 @@
+require '/usr/src/app/sinatra_template/utils' # provided by template
+
 module MuSearch
   class DocumentBuilder
     def initialize(tika:, sparql_client:, attachment_path_base:, logger:)
@@ -53,7 +55,7 @@ module MuSearch
       prop_key_s = property_key.gsub(/[^a-zA-Z1-9]/, "")
       query = <<SPARQL
     SELECT DISTINCT ?#{prop_key_s} WHERE {
-      #{sparql_escape_uri(uri)} #{predicate_s} ?#{prop_key_s}
+      #{SinatraTemplate::Utils.sparql_escape_uri(uri)} #{predicate_s} ?#{prop_key_s}
     }
 SPARQL
       results = @sparql_client.query(query)

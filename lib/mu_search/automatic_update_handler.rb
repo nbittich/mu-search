@@ -1,4 +1,6 @@
 require_relative 'update_handler'
+require_relative 'document_builder'
+require '/usr/src/app/sinatra_template/utils' # provided by template
 
 module MuSearch
   ##
@@ -9,6 +11,8 @@ module MuSearch
   # and if so remove it from the index
   # this handler takes the configured allowed_groups of an index into account
   class AutomaticUpdateHandler < MuSearch::UpdateHandler
+    include ::SinatraTemplate::Utils
+
     ##
     # creates an automatic update handler
     def initialize(elasticsearch:, tika:, sparql_connection_pool:, search_configuration:, **args)

@@ -56,13 +56,13 @@ module MuSearch
             allowed_groups = index.allowed_groups
             if document_exists_for?(allowed_groups, document_id, rdf_types)
               @logger.info("UPDATE HANDLER") { "Document <#{document_id}> needs to be updated in index #{index.name} for '#{index_type}' and allowed groups #{allowed_groups}" }
-              document_builder = MuSearch::DocumentBuilder.new(
-                tika: @tika,
-                sparql_client: sparql_client,
-                attachment_path_base: @attachment_path_base,
-                logger: @logger
-              )
               @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
+                document_builder = MuSearch::DocumentBuilder.new(
+                  tika: @tika,
+                  sparql_client: sparql_client,
+                  attachment_path_base: @attachment_path_base,
+                  logger: @logger
+                )
                 properties = index_definition.properties
                 document = document_builder.fetch_document_to_index(uri: document_id, properties: properties)
                 @logger.debug ("UPDATE_HANDLER") { document.pretty_inspect}

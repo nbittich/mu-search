@@ -27,10 +27,15 @@ module MuSearch
     # If a document fails to index, a warning will be logged, but the indexing continues.
     # The other documents in the batch will still be indexed.
     def build
-      @logger.info("INDEXING") { "Building index of type #{@index_definition.rdf_type}" }
+      @logger.info("INDEXING") { "Building index of type #{@index_definition.name}" }
       rdf_types = @index_definition.related_rdf_types
       number_of_documents = count_documents(rdf_types)
-      @logger.info("INDEXING") { "Found #{number_of_documents} documents to index of type #{rdf_types.join(',')} with allowed groups #{@search_index.allowed_groups}" }
+      @logger.info("INDEXING") do
+        %(Found #{number_of_documents} documents to index
+            - matching type(s) #{rdf_types.inspect}
+            - using allowed groups #{@search_index.allowed_groups}"
+          )
+      end
       batches =
         if @max_batches && (@max_batches != 0)
           [@max_batches, number_of_documents / @batch_size].min

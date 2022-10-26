@@ -1,6 +1,10 @@
+# frozen_string_literal: true
+
 require '/usr/src/app/sinatra_template/utils' # provided by template
 
 module MuSearch
+  ##
+  # This class is responsible for building JSON documents from an IndexDefinition
   class DocumentBuilder
     def initialize(tika:, sparql_client:, attachment_path_base:, logger:)
       @tika = tika
@@ -8,6 +12,16 @@ module MuSearch
       @attachment_path_base = attachment_path_base
       @cache_path_base = "/cache/"
       @logger = logger
+    end
+
+    ##
+    # Builds a document to index for the given resource URI and index_definition
+    def build_document_for_index(uri:, index_definition:)
+      if index_definition.is_composite_index?
+        fetch_document_for_composite_index(uri: uri, index_definition: index_definition)
+      else
+        fetch_document_to_index(uri: uri, properties: index_definition.properties)
+      end
     end
 
     # Constructs a document to index for the given resource URI and configured properties.
@@ -20,7 +34,7 @@ module MuSearch
     #   - properties: Array of properties as configured in the search config
     def fetch_document_to_index(uri: nil, properties: nil)
       # we include uuid because it may be used for folding
-      properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.has_key?("uuid")
+      properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
 
       key_value_tuples = properties.collect do |key, prop_config|
         prop_values = get_property_values(uri, key, prop_config)
@@ -40,6 +54,25 @@ module MuSearch
       end
 
       Hash[key_value_tuples]
+    end
+
+    ##
+    # construct a document for a composite index
+    #
+    # this is quite similar to a regular index,
+    # but the provided resource (uri) could have multiple types and thus match multiple subtypes
+    # in some cases this means different property paths may be mapped on the same field in the document
+    # this is handled here by merging those documents as good as possible
+    def fetch_document_for_composite_index(uri:, index_definition:)
+      raise "document_builder: expected a composite index" unless index_definition.is_composite_index?
+
+      merged_document = {}
+      relevant_sub_indexes_for(uri, index_definition.composite_types).each do |sub_definition|
+        properties = sub_definition.properties
+        document = fetch_document_to_index(uri: uri, properties: properties)
+        merged_document = smart_merge(merged_document, document)
+      end
+      merged_document
     end
 
     private
@@ -107,12 +140,14 @@ SPARQL
     def build_file_field(file_uris)
       file_uris.collect do |file_uri|
         file_path = File.join(@attachment_path_base, file_uri.to_s.sub("share://", ""))
-        if File.exists? file_path
+        if File.exist?(file_path)
           file_size = File.size(file_path)
           if file_size < ENV["MAXIMUM_FILE_SIZE"].to_i
             content = extract_text_content(file_path)
           else
-            @logger.warn("INDEXING") { "File #{file_path} (#{file_size} bytes) exceeds the allowed size of #{ENV["MAXIMUM_FILE_SIZE"]} bytes. File content will not be indexed." }
+            @logger.warn("INDEXING") do
+              "File #{file_path} (#{file_size} bytes) exceeds the allowed size of #{ENV['MAXIMUM_FILE_SIZE']} bytes. File content will not be indexed."
+            end
             content = nil
           end
         else
@@ -176,6 +211,40 @@ SPARQL
       when 0 then nil
       when 1 then value.first
       else value
+      end
+    end
+
+    ##
+    # select sub indexes matching the type(s) of the provided resource
+    def relevant_sub_indexes_for(uri, composite_types)
+      types = @sparql_client.query( "SELECT DISTINCT ?type WHERE { #{sparql_escape_uri(uri)} a ?type}").map{ |result| result["type"].to_s }
+      composite_types.select{ |sub_definition| (sub_definition.related_rdf_types & types).length > 0 }
+    end
+
+    ##
+    # smart_merge document
+    def smart_merge(document_a, document_b)
+      document_a.merge(document_b) do |key, a_val, b_val|
+        if a_val.nil?
+          b_val
+        elsif b_val.nil?
+          a_val
+        elsif a_val.is_a?(Array) && b_val.is_a?(Array)
+          a_val.concat(b_val).uniq
+        elsif a_val.is_a?(Array) && (b_val.is_a?(String) || b_val.is_a?(Integer) || b_val.is_a?(Float))
+          [*a_val, b_val].uniq
+        elsif a_val.is_a?(Hash)
+          # b_val must also be a hash
+          smart_merge(a_val, b_val)
+        elsif  b_val.is_a?(Array) && (b_val.is_a?(String) || b_val.is_a?(Integer) || b_val.is_a?(Float))
+          # a_val can not be nil or an array, so must be a simple value
+          [*b_val, a_val].uniq
+        elsif (a_val.is_a?(String) || a_val.is_a?(Integer) || a_val.is_a?(Float)) &&
+              (b_val.is_a?(String) || b_val.is_a?(Integer) || b_val.is_a?(Float))
+          [a_val,b_val].uniq
+        else
+          raise "smart_merge: Invalid combo #{a_val.inspect} and #{b_val.inspect} can not be merged"
+        end
       end
     end
   end

@@ -1,3 +1,5 @@
+require_relative './search_index'
+require '/usr/src/app/sinatra_template/utils' # provided by template
 module MuSearch
   ###
   # The IndexManager keeps track of indexes and their state in:
@@ -6,6 +8,7 @@ module MuSearch
   # - triplestore
   ###
   class IndexManager
+    include ::SinatraTemplate::Utils
     attr_reader :indexes
     def initialize(logger:, elasticsearch:, tika:, sparql_connection_pool:, search_configuration:)
       @logger = logger

@@ -1,4 +1,8 @@
+# frozen_string_literal: true
+
 require_relative 'update_handler'
+require_relative 'document_builder'
+require '/usr/src/app/sinatra_template/utils' # provided by template
 
 module MuSearch
   ##
@@ -9,6 +13,8 @@ module MuSearch
   # and if so remove it from the index
   # this handler takes the configured allowed_groups of an index into account
   class AutomaticUpdateHandler < MuSearch::UpdateHandler
+    include ::SinatraTemplate::Utils
+
     ##
     # creates an automatic update handler
     def initialize(elasticsearch:, tika:, sparql_connection_pool:, search_configuration:, **args)
@@ -17,6 +23,7 @@ module MuSearch
       @sparql_connection_pool = sparql_connection_pool
       @type_definitions = search_configuration[:type_definitions]
       @attachment_path_base = search_configuration[:attachment_path_base]
+
       super(search_configuration: search_configuration, **args)
     end
 
@@ -24,7 +31,7 @@ module MuSearch
     # Update all documents relating to a particular uri and a series of
     # types.
     #
-    #   - document_id: String URI of the entity which needs an update.
+    #   - uri: String URI of the entity which needs an update.
     #   - index_types: Array of index types where the document needs to be updated
     #   - update_type: Type of the update (:update or :delete)
     #
@@ -34,34 +41,20 @@ module MuSearch
     #            the document gets updated in the corresponding search index
     #       If the document doesn't exist (anymore) or is not accessible in the triplestore for a set of allowed groups,
     #            the document is removed from the corresponding search index
-    def handler(document_id, index_types, update_type)
+    def handler(uri, index_types, _update_type)
       index_types.each do |index_type|
-        @logger.debug("UPDATE HANDLER") { "Updating document <#{document_id}> in indexes for type '#{index_type}'" }
+        @logger.debug("UPDATE HANDLER") { "Updating document <#{uri}> in indexes for type '#{index_type}'" }
+
         indexes = @index_manager.indexes[index_type]
         indexes.each do |_, index|
-          rdf_type = @type_definitions[index_type]["rdf_type"]
+          index_definition = @type_definitions[index_type]
+          rdf_types = index_definition.related_rdf_types
           allowed_groups = index.allowed_groups
-          if document_exists_for? allowed_groups, document_id, rdf_type
-            @logger.debug("UPDATE HANDLER") { "Document <#{document_id}> needs to be updated in index #{index.name} for '#{index_type}' and allowed groups #{allowed_groups}" }
-            @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
-              document_builder = MuSearch::DocumentBuilder.new(
-                tika: @tika,
-                sparql_client: sparql_client,
-                attachment_path_base: @attachment_path_base,
-                logger: @logger
-              )
-              properties = @type_definitions[index_type]["properties"]
-              document = document_builder.fetch_document_to_index(uri: document_id, properties: properties)
-              @elasticsearch.upsert_document index.name, document_id, document
-            end
+          # check if document exists for any of the types related to the (composite) index
+          if document_exists_for?(allowed_groups, uri, rdf_types)
+            build_and_upsert_document(allowed_groups, uri, index_definition, index)
           else
-            @logger.debug("UPDATE HANDLER") { "Document <#{document_id}> not accessible or already removed in triplestore for allowed groups #{allowed_groups}. Removing document from Elasticsearch index #{index.name} as well." }
-            begin
-              @elasticsearch.delete_document index.name, document_id
-            rescue
-              # TODO check type of error and log warning if needed
-              @logger.debug("UPDATE HANDLER") { "Failed to delete document #{document_id} from index #{index.name}" }
-            end
+            remove_document(uri, index)
           end
         end
       end
@@ -69,9 +62,42 @@ module MuSearch
 
     private
 
-    def document_exists_for?(allowed_groups, document_id, rdf_type)
+    def build_and_upsert_document(allowed_groups, uri, index_definition, index)
+      @logger.info("UPDATE HANDLER") do
+        "Document <#{uri}> needs to be updated in index #{index.name} for '#{index_definition.name}' and allowed groups #{allowed_groups}"
+      end
       @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
-        sparql_client.query "ASK { #{sparql_escape_uri(document_id)} a #{sparql_escape_uri(rdf_type)} . }"
+        document_builder = MuSearch::DocumentBuilder.new(
+          tika: @tika,
+          sparql_client: sparql_client,
+          attachment_path_base: @attachment_path_base,
+          logger: @logger
+        )
+        document = document_builder.build_document_for_index(uri: uri, index_definition: index_definition)
+        @logger.debug("UPDATE_HANDLER") { document.pretty_inspect }
+        @elasticsearch.upsert_document(index.name, uri, document)
+      end
+    end
+
+    def remove_document(document_id, index)
+      @logger.info("UPDATE HANDLER") do
+        "Document <#{document_id}> (type #{index_type}) not accessible or already removed in triplestore for allowed groups #{allowed_groups}. Removing document from Elasticsearch index #{index.name} as well."
+      end
+      begin
+        @elasticsearch.delete_document(index.name, document_id)
+      rescue StandardError => e
+        # TODO: check type of error and log warning if needed
+        @logger.info("UPDATE HANDLER") { "Failed to delete document #{document_id} from index #{index.name}" }
+        @logger.debug("UPDATE_HANDLER") { e }
+      end
+    end
+
+    ##
+    # assumes rdf_types is an array
+    def document_exists_for?(allowed_groups, uri, rdf_types)
+      @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
+        rdf_types_string = rdf_types.map { |type| sparql_escape_uri(type) }.join(',')
+        sparql_client.query "ASK {#{sparql_escape_uri(uri)} a ?type. filter(?type in(#{rdf_types_string})) }"
       end
     end
   end

@@ -1,3 +1,5 @@
+require '/usr/src/app/sinatra_template/utils' # provided by template
+require 'request_store'
 module MuSearch
   module SPARQL
     class ClientWrapper
@@ -118,9 +120,9 @@ module MuSearch
     #   - predicate: Predicate to be escaped.
     def self.predicate_string_term(predicate)
       if predicate.start_with? "^"
-        "^#{sparql_escape_uri(predicate.slice(1, predicate.length))}"
+        "^#{SinatraTemplate::Utils.sparql_escape_uri(predicate.slice(1, predicate.length))}"
       else
-        sparql_escape_uri(predicate)
+        SinatraTemplate::Utils.sparql_escape_uri(predicate)
       end
     end
 

@@ -1,3 +1,5 @@
+require_relative './index_definition.rb'
+
 module MuSearch
   module ConfigParser
 
@@ -47,12 +49,7 @@ module MuSearch
         config[:eager_indexing_groups] = json_config["eager_indexing_groups"]
       end
 
-      config[:type_definitions] = Hash[
-        json_config["types"].collect do |type_def|
-          [type_def["type"], type_def]
-        end
-      ]
-
+      config[:type_definitions] = Hash[MuSearch::IndexDefinition.from_json_config(json_config["types"])]
       config
     end
 
@@ -152,25 +149,21 @@ module MuSearch
             errors << "invalid type definition for #{type["type"]}, missing key #{key}"
           end
         end
-        unless type.has_key?("rdf_type") || type.has_key?("composite_types")
+
+        if type["rdf_type"].kind_of?(Array)
+          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} specifies multiple rdf types, this is experimental!" }
+          if type["rdf_type"].length == 0
+            errors << "#{type["type"]} has doesn't specify any rdf_type, the array is empty."
+          end
+        end
+
+        unless type["rdf_type"] || type["composite_types"]
           errors << "type definition for #{type["type"]} must specify rdf_type or composite_types"
         end
 
         if type.has_key?("composite_types")
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type, support for composite types is experimental!" }
-          undefined_types = type["composite_types"].select { |type| ! types.include?(type) }
-          if undefined_types.length > 0
-            errors << "composite type #{type["type"]} refers to type(s) #{undefined_types} which don't exist"
-          end
-          if type["properties"].kind_of?(Array)
-            type["properties"].each do |prop, value|
-              unless prop.has_key?("name")
-                errors << "composite type #{type["type"]} has an invalid property: properties of a composite type should have a field 'name'"
-              end
-            end
-          else
-            errors << "composite type #{type["type"]}: properties should be an array"
-          end
+          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type, support for composite types is experimental!"}
+          errors.concat(validate_composite_type(type, types))
         end
 
         if type.has_key?("mappings")
@@ -184,6 +177,27 @@ module MuSearch
       errors
     end
 
+    def self.validate_composite_type(type, types)
+      errors = []
+      unless type["composite_types"].is_a?(Array)
+        errors << "composite type #{type["type"]} is not correctly specified field 'composite_types' should be an array"
+      end
+      undefined_types = type["composite_types"].select{ |type| ! types.include?(type)}
+      if undefined_types.length > 0
+        errors << "composite type #{type["type"]} refers to type(s) #{undefined_types} which don't exist"
+      end
+      if type["properties"].kind_of?(Array)
+        type["properties"].each do |prop, value|
+          unless prop.has_key?("name")
+            errors << "composite type #{type["type"]} has an invalid property: properties of a composite type should have a field 'name'"
+          end
+        end
+      else
+        errors << "composite type #{type["type"]}: properties should be an array"
+      end
+
+      errors
+    end
     ##
     # do some basic config validation to make debugging a faulty eager_indexing config easier
     #

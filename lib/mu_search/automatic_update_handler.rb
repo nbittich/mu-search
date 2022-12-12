@@ -54,6 +54,9 @@ module MuSearch
           if document_exists_for?(allowed_groups, uri, rdf_types)
             build_and_upsert_document(allowed_groups, uri, index_definition, index)
           else
+            @logger.info("UPDATE HANDLER") do
+              "Resource <#{uri}> (type #{index_definition.name}) not accessible or already removed in triplestore for allowed groups #{allowed_groups}. Removing document from Elasticsearch index #{index.name} as well."
+            end
             remove_document(uri, index)
           end
         end
@@ -80,9 +83,6 @@ module MuSearch
     end
 
     def remove_document(document_id, index)
-      @logger.info("UPDATE HANDLER") do
-        "Document <#{document_id}> (type #{index_type}) not accessible or already removed in triplestore for allowed groups #{allowed_groups}. Removing document from Elasticsearch index #{index.name} as well."
-      end
       begin
         @elasticsearch.delete_document(index.name, document_id)
       rescue StandardError => e

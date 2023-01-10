@@ -224,15 +224,21 @@ module MuSearch
         end
       end
 
+      minimal_matching_indexes = matching_indexes.reject do |idx|
+        matching_indexes.find do |other_idx|
+          idx.allowed_groups.all? { |group| other_idx.allowed_groups.include? group } and other_idx.allowed_groups.count > idx.allowed_groups.count # we are a strict subset, not the same set
+        end
+      end
+
       ## Check if match is complete. I.e. the allowed groups of the matching_indexes cover the given allowed_groups
       is_complete_match = allowed_groups.all? do |allowed_group|
-        matching_indexes.any? do |idx|
+        minimal_matching_indexes.any? do |idx|
           idx.allowed_groups.include? allowed_group
         end
       end
 
       if is_complete_match
-        matching_indexes
+        minimal_matching_indexes
       else
         index = ensure_index type_name, allowed_groups
         [index]

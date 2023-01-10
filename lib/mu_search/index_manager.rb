@@ -91,15 +91,8 @@ module MuSearch
       @master_mutex.synchronize do
         type_names.each do |type_name|
           if allowed_groups
-            if @configuration[:additive_indexes]
-              allowed_groups.each do |allowed_group|
-                index = find_combined_index_for_groups type_name, [allowed_group]
-                indexes_to_invalidate << index unless index.nil?
-              end
-            else
-              index = find_combined_index_for_groups type_name, allowed_groups
-              indexes_to_invalidate << index unless index.nil?
-            end
+            index = find_combined_index_for_groups type_name, allowed_groups
+            indexes_to_invalidate << index unless index.nil?
           elsif @indexes[type_name] # invalidate all indexes, regardless of access rights
             @indexes[type_name].each do |_, index|
               indexes_to_invalidate << index
@@ -139,15 +132,8 @@ module MuSearch
       @master_mutex.synchronize do
         type_names.each do |type_name|
           if allowed_groups
-            if @configuration[:additive_indexes]
-              allowed_groups.each do |allowed_group|
-                index = find_combined_index_for_groups type_name, [allowed_group]
-                indexes_to_remove << index unless index.nil?
-              end
-            else
-              index = find_combined_index_for_groups type_name, allowed_groups
-              indexes_to_remove << index unless index.nil?
-            end
+            index = find_combined_index_for_groups type_name, allowed_groups
+            indexes_to_remove << index unless index.nil?
           elsif @indexes[type_name] # remove all indexes, regardless of access rights
             @indexes[type_name].each do |_, index|
               indexes_to_remove << index

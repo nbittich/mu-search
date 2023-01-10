@@ -30,7 +30,7 @@ module MuSearch
     #   - allowed_groups: allowed groups to find index for (array of {group, variables}-objects)
     #   - force_update: whether the index needs to be updated only when it's marked as invalid or not
     #
-    # In case of additive indexes, returns one index per allowed group
+    # In case of additive indexes, returns a combination of indexes
     # Otherwise, returns an array of a single index
     # Returns an empty array if no index is found
     def fetch_indexes(type_name, allowed_groups, force_update: false)
@@ -41,18 +41,14 @@ module MuSearch
         type_names.each do |type_name|
           if allowed_groups
             if @configuration[:additive_indexes]
-              additive_indexes = []
-              allowed_groups.each do |allowed_group|
-                index = get_matching_index type_name, [allowed_group]
-                additive_indexes << index unless index.nil?
-              end
+              additive_indexes = find_indexes_for_groups type_name, allowed_groups
               indexes_to_update += additive_indexes
               @logger.debug("INDEX MGMT") do
                 index_names_s = additive_indexes.map(&:name).join(", ")
-                "Fetched #{additive_indexes.length} additive indexes for type '#{type_name}' and allowed_groups #{allowed_groups}: #{index_names_s}"
+                "Fetched #{additive_indexes.length} additive indexes for type '#{type_name}' and allowed_groups #{allowed_groups}: #{index_names_s}\nMatching allowed groups: #{additive_indexes.map(&:allowed_groups).to_json}"
               end
             else
-              index = get_matching_index type_name, allowed_groups
+              index = get_combined_index_for_groups type_name, allowed_groups
               unless index.nil?
                 indexes_to_update << index
                 @logger.debug("INDEX MGMT") { "Fetched index for type '#{type_name}' and allowed_groups #{allowed_groups}: #{index.name}" }
@@ -97,11 +93,11 @@ module MuSearch
           if allowed_groups
             if @configuration[:additive_indexes]
               allowed_groups.each do |allowed_group|
-                index = find_matching_index type_name, [allowed_group]
+                index = find_combined_index_for_groups type_name, [allowed_group]
                 indexes_to_invalidate << index unless index.nil?
               end
             else
-              index = find_matching_index type_name, allowed_groups
+              index = find_combined_index_for_groups type_name, allowed_groups
               indexes_to_invalidate << index unless index.nil?
             end
           elsif @indexes[type_name] # invalidate all indexes, regardless of access rights
@@ -145,11 +141,11 @@ module MuSearch
           if allowed_groups
             if @configuration[:additive_indexes]
               allowed_groups.each do |allowed_group|
-                index = find_matching_index type_name, [allowed_group]
+                index = find_combined_index_for_groups type_name, [allowed_group]
                 indexes_to_remove << index unless index.nil?
               end
             else
-              index = find_matching_index type_name, allowed_groups
+              index = find_combined_index_for_groups type_name, allowed_groups
               indexes_to_remove << index unless index.nil?
             end
           elsif @indexes[type_name] # remove all indexes, regardless of access rights
@@ -222,8 +218,8 @@ module MuSearch
     # Create a new one if none is found in the cache.
     #   - type_name: type to find index for
     #   - allowed_groups: allowed groups to find index for (array of {group, variables}-objects)
-    def get_matching_index(type_name, allowed_groups)
-      index = find_matching_index type_name, allowed_groups
+    def get_combined_index_for_groups(type_name, allowed_groups)
+      index = find_combined_index_for_groups type_name, allowed_groups
       if index
         @logger.debug("INDEX MGMT") { "Found matching index in cache for type '#{type_name}' and allowed_groups #{allowed_groups}" }
       else
@@ -240,11 +236,44 @@ module MuSearch
     # Returns nil if no index is found
     #
     # TODO take used_groups into account when they are supported by mu-authorization
-    def find_matching_index(type_name, allowed_groups, used_groups = [])
-      @logger.debug("INDEX MGMT") { "Trying to find matching index in cache for type '#{type_name}', allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
+    def find_combined_index_for_groups(type_name, allowed_groups, used_groups = [])
+      @logger.debug("INDEX MGMT") { "Trying to find matching combined index in cache for type '#{type_name}', allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
       group_key = serialize_authorization_groups allowed_groups
       index = @indexes.dig(type_name, group_key)
       index
+    end
+
+    # Find matching indexes for the given type and allowed/used groups
+    #   - type_name: type to find index for
+    #   - allowed_groups: allowed groups to find index for (array of {group, variables}-objects)
+    #   - used_groups: used groups to find index for (array of {group, variables}-objects)
+    # Returns an empty array if no index is found
+    #
+    # TODO take used_groups into account when they are supported by mu-authorization
+    def find_indexes_for_groups(type_name, allowed_groups, used_groups = [])
+      @logger.debug("INDEX MGMT") { "Trying to combine indexes in cache for type '#{type_name}' to match allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
+
+      indexes = @indexes[type_name].values
+      # Find all indexes with allowed_groups that are a subset of the given allowed_groups
+      matching_indexes = indexes.find_all do |idx|
+        idx.allowed_groups.all? do |idx_allowed_group|
+          allowed_groups.include? idx_allowed_group
+        end
+      end
+
+      ## Check if match is complete. I.e. the allowed groups of the matching_indexes cover the given allowed_groups
+      is_complete_match = allowed_groups.all? do |allowed_group|
+        matching_indexes.any? do |idx|
+          idx.allowed_groups.include? allowed_group
+        end
+      end
+
+      if is_complete_match
+        matching_indexes
+      else
+        index = ensure_index type_name, allowed_groups
+        [index]
+      end
     end
 
     # Ensure index exists in the triplestore, in Elasticsearch and
@@ -265,7 +294,7 @@ module MuSearch
       end
 
       # Ensure index exists in the IndexManager
-      index = find_matching_index type_name, allowed_groups, used_groups
+      index = find_combined_index_for_groups type_name, allowed_groups, used_groups
       unless index
         @logger.debug("INDEX MGMT") { "Add index #{index_name} to cache for type '#{type_name}', allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
         index = MuSearch::SearchIndex.new(

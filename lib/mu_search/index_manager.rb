@@ -24,14 +24,13 @@ module MuSearch
 
     # Fetches an array of indexes for the given type and allowed/used groups
     # Ensures all indexes exists and are up-to-date when the function returns
-    # If no type is passed, indexes for all types are invalidated
-    # If no allowed_groups are passed, all indexes are invalidated regardless of access rights
+    # If no type is passed, indexes for all types are fetched
+    # If no allowed_groups are passed, all indexes are fetched regardless of access rights
     #   - type_name: type to find index for
     #   - allowed_groups: allowed groups to find index for (array of {group, variables}-objects)
     #   - force_update: whether the index needs to be updated only when it's marked as invalid or not
     #
-    # In case of additive indexes, returns a combination of indexes
-    # Otherwise, returns an array of a single index
+    # Returns an array of indexes that match the allowed_groups when combined
     # Returns an empty array if no index is found
     def fetch_indexes(type_name, allowed_groups, force_update: false)
       indexes_to_update = []
@@ -40,21 +39,13 @@ module MuSearch
       @master_mutex.synchronize do
         type_names.each do |type_name|
           if allowed_groups
-            if @configuration[:additive_indexes]
-              additive_indexes = find_indexes_for_groups type_name, allowed_groups
-              indexes_to_update += additive_indexes
-              @logger.debug("INDEX MGMT") do
-                index_names_s = additive_indexes.map(&:name).join(", ")
-                "Fetched #{additive_indexes.length} additive indexes for type '#{type_name}' and allowed_groups #{allowed_groups}: #{index_names_s}\nMatching allowed groups: #{additive_indexes.map(&:allowed_groups).to_json}"
-              end
-            else
-              index = get_combined_index_for_groups type_name, allowed_groups
-              unless index.nil?
-                indexes_to_update << index
-                @logger.debug("INDEX MGMT") { "Fetched index for type '#{type_name}' and allowed_groups #{allowed_groups}: #{index.name}" }
-              end
+            additive_indexes = find_indexes_for_groups type_name, allowed_groups
+            indexes_to_update += additive_indexes
+            @logger.debug("INDEX MGMT") do
+              index_names_s = additive_indexes.map(&:name).join(", ")
+              "Fetched #{additive_indexes.length} additive indexes for type '#{type_name}' and allowed_groups #{allowed_groups}: #{index_names_s}\nMatching allowed groups: #{additive_indexes.map(&:allowed_groups).to_json}"
             end
-          elsif @indexes[type_name] # fetch all indexes, regardless of access rights
+          elsif @indexes[type_name] # fetch all indexes, regardless of access rights. Only used in a stack without mu-authorization.
             @indexes[type_name].each do |_, index|
               @logger.debug("INDEX MGMT") { "Fetched index for type '#{type_name}' and allowed_groups #{index.allowed_groups}: #{index.name}" }
               indexes_to_update << index

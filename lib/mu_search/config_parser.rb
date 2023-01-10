@@ -28,7 +28,6 @@ module MuSearch
         { name: "batch_size", parser: :parse_integer },
         { name: "max_batches", parser: :parse_integer },
         { name: "persist_indexes", parser: :parse_boolean },
-        { name: "additive_indexes", parser: :parse_boolean },
         { name: "enable_raw_dsl_endpoint", parser: :parse_boolean },
         { name: "automatic_index_updates", parser: :parse_boolean },
         { name: "attachments_path_base", parser: :parse_string },

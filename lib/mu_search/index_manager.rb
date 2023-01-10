@@ -216,6 +216,7 @@ module MuSearch
       @logger.debug("INDEX MGMT") { "Trying to combine indexes in cache for type '#{type_name}' to match allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
 
       indexes = @indexes[type_name].values
+      @logger.debug("INDEX MGMT") { "Currently known indexes for type '#{type_name}': #{indexes.map(&:allowed_groups).to_json}" }
       # Find all indexes with allowed_groups that are a subset of the given allowed_groups
       matching_indexes = indexes.find_all do |idx|
         idx.allowed_groups.all? do |idx_allowed_group|

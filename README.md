@@ -137,7 +137,8 @@ If the application only provides public data for unauthenticated users in the gr
 
 ```javascript
 [
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}]
+  [ { "name": "public", "variables" : [] } ],
+  [ { "name": "clean", "variables": [] } ]
 ]
 ```
 
@@ -146,20 +147,15 @@ If, next to the public data, data is organized per organization unit in graphs l
 
 ```javascript
 [
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}],
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}, {"name": "organization-unit", "variables" : ["finance"]}],
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}, {"name": "organization-unit", "variables" : ["legal"]}]
+  [ { "name": "public", "variables" : [] }, { "name": "organization-unit", "variables" : ["finance"] } ],
+  [ { "name": "public", "variables" : [] }, { "name": "organization-unit", "variables" : ["legal"] } ],
+  [ { "name": "clean", "variables": [] } ]
 ]
 ```
 
-In case non-additive indexes are used, an eager indexing group must be provided for each possible combination (permutation) of groups. For example, if some users have access to the data of the finance department as well as the legal department, the example above must be extended with the following eager indexing group:
+In case a group contains a variable, an eager index must be configured for each possible value if you want all search indexes to be prepared upfront.
 
-```javascript
-[
-  ...,
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}, {"name": "organization-unit", "variables" : ["finance"]}, {"name": "organization-unit", "variables" : ["legal"]}]
-]
-```
+Eager indexes may be combined at search time to match the user's allowed groups. For example, if some users have access to the data of the finance department as well as the legal department, both indexes will be queried when the user performs a search operation.
 
 ### How to integrate mu-seach with delta's to update search indexes
 This how-to guide explains how to integrate mu-search with the delta-notification in order to automatically update search index entries when data in the triplestore is modified.
@@ -695,14 +691,24 @@ Possible values are `true` and `false`. Defaults to `false`.
 
 Note that if set to `true`, the indexes may be out-of-date if data has changed in the application while mu-search was down.
 
-#### Eager and additive indexes
+#### Eager indexes
 Configure indexes to be pre-built when the application starts. For each user search profile for which the indexes needs to be prepared, the authorization group names and their corresponding variables needs to be passed.
 
 ```javascript
 {
   "eager_indexing_groups": [
-    [{"variables":[], "name":"clean"}, {"variables":["company-x"], "name":"organization-read"}, {"variables":["company-x"], "name":"organization-write"}, {"variables":[], "name":"public"}],
-    [{"variables":[], "name":"clean"}, {"variables":["company-y"], "name":"organization-read"}, {"variables":[], "name":"public"}],
+    [ 
+      { "variables": ["company-x"], "name": "organization-read" }, 
+      { "variables": ["company-x"], "name": "organization-write" },
+      { "variables": [], "name": "public" }
+    ],
+    [
+      { "variables": ["company-y"], "name": "organization-read" },
+      { "variables": [], "name": "public" }
+    ],
+    [ 
+      { "variables": [], "name": "clean" }
+    ]
   ],
   "types": [
     // index type specifications
@@ -710,12 +716,16 @@ Configure indexes to be pre-built when the application starts. For each user sea
 }
 ```
 
-Note that if you want to prepare indexes for all user profiles in your application, you will have to provide an entry in the `eager_indexing_groups` list for **each** mutation of authorization groups and variables. For example, if you have an authorization group defining a user can only access the data of his company (hence, the company name is a variable of the authorization group), you will need to define an eager index group for each of the possible companies in your application.
+Note that if you want to prepare indexes for all user profiles in your application, you will have to provide an entry in the `eager_indexing_groups` list for **each** possible variable value. For example, if you have an authorization group defining a user can only access the data of his company (hence, the company name is a variable of the authorization group), you will need to define an eager index group for each of the possible companies in your application.
 
 #### Additive index access rights
-[To be completed...]
+Additive indexes are indexes that may be combined to respond to a search query in order to fully match the user's authorization groups. If a user is grantend access to multiple groups, indexes will be combined to calculate the response. Therefore, it's strongly adviced the indexes contain non-overlapping data.
 
-TODO: explain how combination of additive and eager indexing groups work
+Only indexes that are defined in the `eager_indexing_groups` will be used in combinations. If no combination can be found that fully matches the user's authorization group a single index will be created for the request's authorization groups.
+
+Assume your application contains a company-specific user group in the authorization configuration; 2 companies: company X and company Y; and mu-search contains one search index definition for documents. A search index will be generated for documents of company X and another index will be generated for documens of company Y. If a user is granted access to documents of company X as well as for documents of comany Y, a search query performed by this user will be effectuated by combining both search indexes.
+
+A typical group to be specified as a single `eager_indexing_group` is `{ "variables": [], "name": "clean" }`. The index will not contain any data, but will be used in the combination to fully match the user's allowed groups.
 
 ### Delta integration
 Mu-search integrates with the delta's generated by [mu-authorization](https://github.com/mu-semtech/mu-authorization) and dispatched by the [delta-notifier](https://github.com/mu-semtech/delta-notifier).

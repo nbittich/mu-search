@@ -768,9 +768,6 @@ When a delta notification is handled, the update to be performed is pushed on th
 
 Increasing the interval has the advantage that updates on the same document will be applied only once, but has the downside that search results will not be up-to-date for a longer time. The optimal value depends on the application (number of updates, indexed properties, user expectations, etc.)
 
-### Searching
-
-
 ### API
 This section describes the REST API provided by mu-search.
 
@@ -924,12 +921,15 @@ For security reasons, the endpoint is disabled by default. It can be enabled by 
 }
 ```
 
-#### POST `/:type/index`
+#### Admin endpoints
+The admin endpoints can be used to manage the indexes. These endpoints should not be publicly exposed in your application, since they allow 'root' access when no authorization headers are specified on the request.
+
+##### POST `/:type/index`
 Updates the index(es) for the given `:type`. If the request is sent with authorization headers, only the authorized indexes are updated. Otherwise, all indexes for the type are updated.
 
 Type `_all` will update all indexes.
 
-#### POST `/:type/invalidate`
+##### POST `/:type/invalidate`
 Invalidates the index(es) for the given `:type`. If the request is sent with authorization headers, only the authorized indexes are invalidated. Otherwise, all indexes for the type are invalidated.
 
 Type `_all` will invalidate all indexes.
@@ -938,14 +938,14 @@ An invalidated index will be updated before executing a new search query on it.
 
 Note that the search index is only marked as invalid in memory. I.e the index is not removed from Elasticsearch nor the triplestore. Hence, on restart of mu-search, the index will be considered valid again.
 
-#### DELETE `/:type`
+##### DELETE `/:type`
 Deletes the index(es) for the given `:type` in Elasticsearch and the triplestore. If the request is sent with authorization headers, only the authorized indexes are deleted. Otherwise, all indexes for the type are deleted.
 
 Type `_all` will delete all indexes.
 
 A deleted index will be recreated before executing a new search query on it.
 
-#### POST `/update`
+##### POST `/update`
 Processes an update of the delta-notifier. See [delta integration](#delta-integration).
 
 Currenty only delta format v.0.0.1 is supported.

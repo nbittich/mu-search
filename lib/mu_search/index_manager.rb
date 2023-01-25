@@ -41,7 +41,7 @@ module MuSearch
           if allowed_groups
             additive_indexes = ensure_index_combination_for_groups type_name, allowed_groups
             indexes_to_update += additive_indexes
-          elsif @indexes[type_name] # fetch all indexes, regardless of access rights. Only used in a stack without mu-authorization.
+          elsif @indexes[type_name] # fetch all indexes, regardless of access rights
             @indexes[type_name].each do |_, index|
               @logger.debug("INDEX MGMT") { "Fetched index for type '#{type_name}' and allowed_groups #{index.allowed_groups}: #{index.name}" }
               indexes_to_update << index

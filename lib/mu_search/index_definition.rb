@@ -129,8 +129,8 @@ module MuSearch
     end
 
     def full_property_paths_for(property)
-      if @property_path_cache.has_key?(property)
-        return @property_path_cache[property] + @property_path_cache["^#{property}"]
+      if matches_property?(property)
+        @property_path_cache[property] + @property_path_cache["^#{property}"]
       end
     end
 

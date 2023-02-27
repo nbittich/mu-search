@@ -2,7 +2,7 @@
 Stage: Draft
 Start Date: 17-10-2022
 Release Date: Unreleased
-RFC PR: 
+RFC PR: https://github.com/mu-semtech/mu-search/pull/57
 ---
 
 # multilang support in musearch
@@ -50,7 +50,7 @@ When storing multiple languages in one index there are three common ways of stor
 ```
 
 
-Of these, only language containers and postfixed fields allow a user to define custom tokenizers and analysers for specific languages. So the expanded form should not be considered a candidate. 
+Of these, only language containers and postfixed fields allow a user to define custom tokenizers and analysers for specific languages. So the expanded form should not be considered a candidate for storage. 
 
 Of the two remaining options the language container seems the most robust solution, by nesting the languages we make parsing and finding the relative languages a lot easier and avoid the chance (however small) of conflicting with another defined property.
 
@@ -61,7 +61,7 @@ This needs to be researched, currently no idea how this is typically handled. A 
 ```json
 {
 "label": {
-    "none": "The Queen",
+    "default": "The Queen",
   }
 }
 ```
@@ -114,7 +114,7 @@ A typical type/index definition looks like this currently
 In essence musearch is not aware of the type of data being indexed, rather this is offloaded to elasticsearch. For language tagged literals it should be possible to specify the fact that the language tag needs to be stored. 
 
 mu-search already supports objects instead of a plain path for properties for both nested objects and attachment pipelines (as shown above).
-This RFC suggests expanding the object with an optional `literal_type` to specify a specific type. Currently only two types would be offered: `string` and `language-string`. `string` would be the default if literal_type is not defined. An example:
+This RFC suggests expanding the object with an optional `type` to specify a specific type. Currently only three types would be offered: `simple`, `nested` and `language-string`. `simple` would be the default if type is not defined, nested applies to any property that is a hash and has a `properties` key. An example:
 
 ```json
   {
@@ -124,7 +124,7 @@ This RFC suggests expanding the object with an optional `literal_type` to specif
       "properties": {
         "title": {
           "via": "http://purl.org/dc/terms/title",
-          "literal_type": "language-string"
+          "type": "language-string"
         },
         "author": "http://purl.org/dc/terms/author",
         "related": {
@@ -132,7 +132,7 @@ This RFC suggests expanding the object with an optional `literal_type` to specif
             "^http://purl.org/dc/terms/related",
             "http://purl.org/dc/terms/title"
           ],
-          "literal_type": "language-string"
+          "type": "language-string"
         },
         "theme": [
           "http://purl.org/dc/terms/theme",

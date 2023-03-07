@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require '/usr/src/app/sinatra_template/utils' # provided by template
-
+require_relative './property_definition'
 module MuSearch
   ##
   # This class is responsible for building JSON documents from an IndexDefinition
@@ -37,22 +37,23 @@ module MuSearch
       properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
 
       key_value_tuples = properties.collect do |key, prop_config|
-        prop_values = get_property_values(uri, key, prop_config)
-        index_value = []
-        if prop_config.is_a? Hash
-          if prop_config["attachment_pipeline"] # file field
-            index_value = build_file_field(prop_values)
-          elsif prop_config["rdf_type"] # nested object
-            index_value = build_nested_object(prop_values, prop_config["properties"])
-          else
-            raise "Invalid configuration for property #{key}. If the property configuration is a hash, it must either be a file field or nested object configuration."
-          end
-        else
+        property_definition = PropertyDefinition.from_json_config(key, prop_config)
+        if property_definition.type == "simple"
+          prop_values = get_property_values(uri, key, property_definition.path)
           index_value = build_simple_property(prop_values)
+        elsif property_definition.type == "language-string"
+          index_value = [get_language_string_map(uri, property_definition.path)]
+        elsif property_definition.type == "attachment"
+          prop_values = get_property_values(uri, key, property_definition.path)
+          index_value = build_file_field(prop_values)
+        elsif property_definition.type == "nested"
+          prop_values = get_property_values(uri, key, property_definition.path)
+          index_value = build_nested_object(prop_values, prop_config["properties"])
+        else
+          raise "unexpected property type #{property_definition.type} is not handled in document builder"
         end
         [key, denumerate(index_value)]
       end
-
       Hash[key_value_tuples]
     end
 
@@ -76,15 +77,43 @@ module MuSearch
     end
 
     private
+    # Selects the value(s) and their language for the given property of a resource
+    # from the triplestore
+    #   - uri: URI of the resource as a string
+    #   - path: predicate path of the property to fetch
+    # this groups string per language into their own field so we can maintain clean term frequencies
+    # and configure an analyzer for each (sub)field.
+    # strings without a provided language are mapped into a "default" field
+    # see also https://www.elastic.co/guide/en/elasticsearch/guide/current/one-lang-fields.html
+    def get_language_string_map(uri, path)
+      predicate_s = MuSearch::SPARQL.make_predicate_string(path)
+      query = <<SPARQL
+    SELECT DISTINCT ?value ?language WHERE {
+      #{SinatraTemplate::Utils.sparql_escape_uri(uri)} #{predicate_s} ?value.
+      BIND(LANG(?value) as ?language)
+    }
+SPARQL
+      sparql_results = @sparql_client.query(query)
+      language_map =  Hash.new {|hash, key| hash[key] = [] }
+      sparql_results.each do |result|
+        lang = result[:language].to_s
+        value = result[:value].to_s
+        if ! lang.empty?
+          language_map[lang] << value
+        else
+          language_map["default"] << value
+        end
+      end
+      language_map
+    end
 
     # Selects the value(s) for the given property of a resource
     # from the triplestore
     #   - uri: URI of the resource as a string
     #   - property_key: name of the variable to bind the result to
-    #   - property_predicate: predicate (path) of the property to fetch
-    def get_property_values(uri, property_key, property_predicate)
-      predicate = property_predicate.is_a?(Hash) ? property_predicate["via"] : property_predicate
-      predicate_s = MuSearch::SPARQL.make_predicate_string predicate
+    #   - path: predicate path of the property to fetch
+    def get_property_values(uri, property_key, path)
+      predicate_s = MuSearch::SPARQL.make_predicate_string(path)
       prop_key_s = property_key.gsub(/[^a-zA-Z1-9]/, "")
       query = <<SPARQL
     SELECT DISTINCT ?#{prop_key_s} WHERE {

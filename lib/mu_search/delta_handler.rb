@@ -163,13 +163,23 @@ module MuSearch
       property_path_from_target = path.drop(i + 1) # path from the triple until the end
       subject_value = triple["subject"]["value"]
       predicate_value = triple["predicate"]["value"]
-      object_value = triple["object"]["value"]
-      object_type = triple["object"]["type"]
-
+      triple_object = triple["object"]
+      object_value = triple_object["value"]
+      object_type = triple_object["type"]
+      object_datatype = triple_object["datatype"]
+      object_language = triple_object["xml:lang"]
       # escaping values for usage in the SPARQL query
       path_to_target_term = MuSearch::SPARQL::make_predicate_string(property_path_to_target)
       path_from_target_term = MuSearch::SPARQL::make_predicate_string(property_path_from_target)
-      object_term = object_type == "uri" ? sparql_escape_uri(object_value) : %(""#{object_value.sparql_escape}"")
+      if object_type == "uri"
+        object_term = sparql_escape_uri(object_value)
+      elsif object_language
+        object_term = %(""#{object_value.sparql_escape}""@#{object_language})
+      elsif object_datatype
+        object_term = %(""#{object_value.sparql_escape}""^^#{sparql_escape_uri(object_datatype)})
+      else
+        object_term = %(""#{object_value.sparql_escape}"")
+      end
 
       # based on the direction of the predicate, determine the target to which the property_path leads
       target_subject_term = is_inverse ? sparql_escape_uri(object_value) : sparql_escape_uri(subject_value)

@@ -320,7 +320,7 @@ Each type object in the `types` array consists of the following properties:
 **WARNING**: there are two protected fields that should not be used as property keys: `uuid` and `uri`. Both are used internally by the mu-search service to store the uuid and URI of the root resource.
 
 ##### Simple properties
-In the simplest scenario, the properties that need to be searchable map one-by-one on a predicate of the resource.
+In the simplest scenario, the properties that need to be searchable map one-by-one on a predicate (path) of the resource.
 
 In the example below, a search index per user group will be created for documents and users. The documetns index contains resources of type `foaf:Document`s with a `title` and `description`. The users index contains `foaf:Person`s with only `fullname` as searchable property.
 
@@ -350,7 +350,6 @@ In the example below, a search index per user group will be created for document
 
 If multiple values are found in the triplestore for a given predicate, the resulting value for the property in the search document will be an array of all values.
 
-##### Inverse properties
 A property of the search document may also map to an inverse predicate. I.e. resource to be indexed is the object instead of the subject of the triple. An inverse predicate can be indicated in the mapping by prefixing the predicate URI with `^` as done in a SPARQL query.
 
 In the example below the users index contains a property `group` that maps to the inverse predicate `foaf:member` relating a group to a user.
@@ -371,8 +370,6 @@ In the example below the users index contains a property `group` that maps to th
 }
 ```
 
-
-##### Property paths
 Properties can also be mapped to lists of predicates, corresponding to a property path in RDF. In this case, the property value is an array of strings. One string per path segment. The array starts from the indexed resource and may also include [inverse predicate URIs](#inverse-properties).
 
 In the example below the documents index contains a property `topics` that maps to the label of the document's primary topic and a property `publishers` that maps to the names of the publishers via the inverse `foaf:publications` predicate.
@@ -482,7 +479,7 @@ in config.json:
 
 Note that this is different from a composite index, where each type has its own index, as well as being indexed in the composite index. Another difference is that the composite index allows mapping different properties from the sub indexes onto one property in the composite index.
 
-##### [Experimental] Nested objects
+##### Nested objects
 A search document can contain nested objects up to an arbitrary depth. For example for a person you can nest the address object as a property of the person search document.
 
 A nested object is defined by the following properties:
@@ -496,7 +493,7 @@ Objects can be nested to arbitrary depth. The properties object is defined the s
 
 In the example below the document's creator is nested in the `author` property of the search document. The nested person object contains properties `fullname` and the current project's title as `project`.
 
-```javascript
+```json
 {
     "types" : [
         {
@@ -528,6 +525,44 @@ In the example below the document's creator is nested in the `author` property o
     ]
 }
 ```
+
+*NOTE*: currently mu-search does not take the rdf_type of the nested object into account. In the above example, any resource linked via the dct:creator predicate would be included in the elasticsearch document.
+
+##### [Experimental] Multilingual properties
+Mu-search has experimental support for multilingual values. This can be done by setting the type of a property to `language-string`. Background on this feature can be found in [rfcs/multi-language-search.md](rfcs/multi-language-search.md)
+
+For example:
+```json
+{
+    "types" : [
+        {
+            "type" : "document",
+            "on_path" : "documents",
+            "rdf_type" : "http://xmlns.com/foaf/0.1/Document",
+            "properties" : {
+                "title" : {
+                  via: "http://purl.org/dc/elements/1.1/title",
+                  type: "language-string"
+                }
+            }
+        ]
+}
+```
+
+When setting a property type to language-string, mu-search will include the language tag of the literal in the search index. In the above example the title field would be expanded to a language container in the document:
+```json
+{ 
+  title: { 
+    "en": "the english title",
+    "default": "this literal had no language tag"
+  }
+}
+```
+Literals without a language string are mapped onto the "default" field.
+
+For searching, make sure to either specify the appropriate field (`filter[title.en]=xyz` or make use of a wildcard: `filter[title.*]=xyz`.
+
+It's often advised to configure language specific analyzers for each language, this can be done in the mappings sections of the configuration.
 
 ##### [Experimental] Composite types
 A search index can contain documents of different types. E.g. documents (`foaf:Document`) as well as creative works (`schema:CreativeWork`). Currently, each simple type the composite index is constituted of must be defined seperately in the index configuration as well.

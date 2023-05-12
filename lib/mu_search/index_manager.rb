@@ -10,6 +10,7 @@ module MuSearch
   class IndexManager
     include ::SinatraTemplate::Utils
     attr_reader :indexes
+
     def initialize(logger:, elasticsearch:, tika:, sparql_connection_pool:, search_configuration:)
       @logger = logger
       @elasticsearch = elasticsearch
@@ -106,7 +107,7 @@ module MuSearch
     # Remove the indexes for the given type and allowed groups
     # If no type is passed, indexes for all types are removed
     # If no allowed_groups are passed, all indexes are removed regardless of access rights
-    # - type_name: name of the index type to remove all indexes for
+    # - type name: name of the index type to remove all indexes for
     # - allowed_groups: allowed groups to remove indexes for (array of {group, variables}-objects)
     #
     # Returns the list of indexes that are removed
@@ -114,36 +115,30 @@ module MuSearch
     # TODO correctly handle composite indexes
     def remove_indexes(type_name, allowed_groups)
       indexes_to_remove = []
-      type_names = type_name.nil? ? @indexes.keys : [type_name]
-
       @master_mutex.synchronize do
-        type_names.each do |type_name|
-          if allowed_groups
-            index = find_single_index_for_groups type_name, allowed_groups
-            indexes_to_remove << index unless index.nil?
-          elsif @indexes[type_name] # remove all indexes, regardless of access rights
-            @indexes[type_name].each do |_, index|
-              indexes_to_remove << index
-            end
-          end
-        end
-
-        @logger.info("INDEX MGMT") do
-          type_s = type_name.nil? ? "all types" : "type '#{type_name}'"
-          allowed_groups_s = allowed_groups.nil? ? "all groups" : "allowed_groups #{allowed_groups}"
-          index_names_s = indexes_to_remove.map(&:name).join(", ")
-          "Found #{indexes_to_remove.length} indexes to remove for #{type_s} and #{allowed_groups_s}: #{index_names_s}"
-        end
-
-        indexes_to_remove.each do |index|
-          @logger.debug("INDEX MGMT") { "Remove index #{index.name}" }
-          index.mutex.synchronize do
-            remove_index index allowed_groups
-            index.status = :deleted
+        if allowed_groups
+          index = find_single_index_for_groups type_name, allowed_groups
+          indexes_to_remove << index unless index.nil?
+        elsif @indexes[type_name] # remove all indexes, regardless of access rights
+          @indexes[type_name].each do |_, index|
+            indexes_to_remove << index
           end
         end
       end
+      @logger.info("INDEX MGMT") do
+        allowed_groups_s = allowed_groups.nil? ? "all groups" : "allowed_groups #{allowed_groups}"
+        index_names_s = indexes_to_remove.map(&:name).join(", ")
+        "Found #{indexes_to_remove.length} indexes to remove for #{type_name} and #{allowed_groups_s}: #{index_names_s}"
+      end
 
+      indexes_to_remove.each do |index|
+        @logger.debug("INDEX MGMT") { "Remove index #{index.name}" }
+        index.mutex.synchronize do
+          remove_index(index)
+          index.status = :deleted
+        end
+      end
+      
       indexes_to_remove
     end
 
@@ -170,11 +165,7 @@ module MuSearch
         @configuration[:eager_indexing_groups].each do |allowed_groups|
           @configuration[:type_definitions].keys.each do |type_name|
             count = count + 1
-            unless @configuration[:persist_indexes]
-              @logger.info("INDEX MGMT") { "Removing eager index for type '#{type_name}' and allowed_groups #{allowed_groups} since indexes are configured not to be persisted." }
-              remove_index type_name, allowed_groups
-            end
-            index = ensure_index type_name, allowed_groups, [], true
+            index = ensure_index(type_name, allowed_groups, [], true)
             @logger.info("INDEX MGMT") { "(#{count}/#{total}) Eager index #{index.name} created for type '#{index.type_name}' and allowed_groups #{allowed_groups}. Current status: #{index.status}." }
             if index.status == :invalid
               @logger.info("INDEX MGMT") { "Eager index #{index.name} not up-to-date. Start reindexing documents." }
@@ -351,22 +342,11 @@ module MuSearch
       builder.build
     end
 
-    # Removes the index for the given type_name and allowed/used groups
-    # from the triplestore, Elasticsearch and
-    # the in-memory indexes cache of the IndexManager.
-    # Does not yield an error if index doesn't exist
-    def remove_index(type_name, allowed_groups, used_groups = [])
-      sorted_allowed_groups = sort_authorization_groups allowed_groups
-      sorted_used_groups = sort_authorization_groups used_groups
-      index_name = generate_index_name type_name, sorted_allowed_groups, sorted_used_groups
-
-      # Remove index from IndexManager
-      if @indexes.has_key? type_name
-        @indexes[type_name].delete_if { |_, value| value.name == index_name }
-
-        # Remove index from triplestore and Elasticsearch
-        remove_index_by_name index_name
-      end
+    # Removes the index from the triplestore, Elasticsearch
+    # and the in-memory indexes cache of the IndexManager.
+    def remove_index(index)
+      @indexes.delete(index)
+      remove_index_by_name(index.name)
     end
 
     # Removes the index from the triplestore and Elasticsearch

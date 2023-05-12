@@ -51,14 +51,14 @@ module MuSearch
 
         indexes_to_update.each do |index|
           index.status = :invalid if force_update
-          update_index index
-        end
-
-        if indexes_to_update.any? { |index| index.status == :invalid }
-          @logger.warn("INDEX MGMT") { "Not all indexes are up-to-date. Search results may be incomplete." }
         end
       end
-
+      indexes_to_update.each do |index|
+        update_index index
+      end
+      if indexes_to_update.any? { |index| index.status == :invalid }
+          @logger.warn("INDEX MGMT") { "Not all indexes are up-to-date. Search results may be incomplete." }
+      end
       indexes_to_update
     end
 

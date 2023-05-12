@@ -113,7 +113,7 @@ module MuSearch
               @logger.error("UPDATE HANDLER") { "Update of subject <#{subject}> failed" }
               @logger.error("UPDATE HANDLER") { e.full_message }
             end
-            sleep 5
+            sleep 0.5
           end
         end
       end

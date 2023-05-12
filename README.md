@@ -132,16 +132,13 @@ The `eager_indexing_groups` is an array of group specifications. Each group spec
 - **name**: name of the group specification (`GroupSpec`) in mu-authorization
 - **variables**: array of string values used to construct the graph URI for the group. These variables should match the possible result values of the `vars` in case of an `AccessByQuery` access rule in the `GroupSpec`. In case of an `AlwaysAccessible` access rule, this should be an empty array.
 
-Each eager indexing group must always contain `{ "name": "clean", "variables": [] }`.
-
-In case additive search indexes are used, each eager indexing group will be a singleton list. The indexes will be combined to match the user's allowed groups.
-
 #### Example: public data for unauthenticated users
 If the application only provides public data for unauthenticated users in the graph `http://mu.semte.ch/graphs/public`, the following eager indexing groups must be configured:
 
 ```javascript
 [
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}]
+  [ { "name": "public", "variables" : [] } ],
+  [ { "name": "clean", "variables": [] } ]
 ]
 ```
 
@@ -150,20 +147,15 @@ If, next to the public data, data is organized per organization unit in graphs l
 
 ```javascript
 [
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}],
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}, {"name": "organization-unit", "variables" : ["finance"]}],
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}, {"name": "organization-unit", "variables" : ["legal"]}]
+  [ { "name": "public", "variables" : [] }, { "name": "organization-unit", "variables" : ["finance"] } ],
+  [ { "name": "public", "variables" : [] }, { "name": "organization-unit", "variables" : ["legal"] } ],
+  [ { "name": "clean", "variables": [] } ]
 ]
 ```
 
-In case non-additive indexes are used, an eager indexing group must be provided for each possible combination (permutation) of groups. For example, if some users have access to the data of the finance department as well as the legal department, the example above must be extended with the following eager indexing group:
+In case a group contains a variable, an eager index must be configured for each possible value if you want all search indexes to be prepared upfront.
 
-```javascript
-[
-  ...,
-  [{"name": "clean", "variables": []}, {"name": "public", "variables" : []}, {"name": "organization-unit", "variables" : ["finance"]}, {"name": "organization-unit", "variables" : ["legal"]}]
-]
-```
+Eager indexes may be combined at search time to match the user's allowed groups. For example, if some users have access to the data of the finance department as well as the legal department, both indexes will be queried when the user performs a search operation.
 
 ### How to integrate mu-seach with delta's to update search indexes
 This how-to guide explains how to integrate mu-search with the delta-notification in order to automatically update search index entries when data in the triplestore is modified.
@@ -740,8 +732,18 @@ Configure indexes to be pre-built when the application starts. For each user sea
 ```javascript
 {
   "eager_indexing_groups": [
-    [{"variables":[], "name":"clean"}, {"variables":["company-x"], "name":"organization-read"}, {"variables":["company-x"], "name":"organization-write"}, {"variables":[], "name":"public"}],
-    [{"variables":[], "name":"clean"}, {"variables":["company-y"], "name":"organization-read"}, {"variables":[], "name":"public"}],
+    [ 
+      { "variables": ["company-x"], "name": "organization-read" }, 
+      { "variables": ["company-x"], "name": "organization-write" },
+      { "variables": [], "name": "public" }
+    ],
+    [
+      { "variables": ["company-y"], "name": "organization-read" },
+      { "variables": [], "name": "public" }
+    ],
+    [ 
+      { "variables": [], "name": "clean" }
+    ]
   ],
   "types": [
     // index type specifications
@@ -749,33 +751,16 @@ Configure indexes to be pre-built when the application starts. For each user sea
 }
 ```
 
-Note that if you want to prepare indexes for all user profiles in your application, you will have to provide an entry in the `eager_indexing_groups` list for **each** mutation of authorization groups and variables. For example, if you have an authorization group defining a user can only access the data of his company (hence, the company name is a variable of the authorization group), you will need to define an eager index group for each of the possible companies in your application.
+Note that if you want to prepare indexes for all user profiles in your application, you will have to provide an entry in the `eager_indexing_groups` list for **each** possible variable value. For example, if you have an authorization group defining a user can only access the data of his company (hence, the company name is a variable of the authorization group), you will need to define an eager index group for each of the possible companies in your application.
 
-#### Additive indexes
-Additive indexes are indexes per authorization group where indexes are combined to respond to a search query based on the user's authorization groups. If a user is grantend access to mulitple groups, indexes will be combined to calculate the response. The additive indexes mode can only be enabled if the content of the indexes per authorization grouph are mutually exclusive. Otherwise, the search response will contain duplicate results.
+#### Additive index access rights
+Additive indexes are indexes that may be combined to respond to a search query in order to fully match the user's authorization groups. If a user is grantend access to multiple groups, indexes will be combined to calculate the response. Therefore, it's strongly adviced the indexes contain non-overlapping data.
 
-Assume your application contains a company-specific user group in the authorization configuration; 2 companies: company X and company Y; and mu-search contains one search index definition for documents. If additive indexes are enabled, a search index will be generated for documents of company X and another index will be generated for documens of company Y. If a user is granted access for documents of company X as well as for documents of comany Y, a search query performed by this user will be effectuated by combining both search indexes.
+Only indexes that are defined in the `eager_indexing_groups` will be used in combinations. If no combination can be found that fully matches the user's authorization group a single index will be created for the request's authorization groups.
 
-Additive indexes can be enabled via the `additive_indexes` flag at the root of the mu-search configuration file. Possible values are `true` or `false`. It defaults to `false`.
-```javascript
-{
-  "additive_indexes": true,
-  "types": [
-    // index type specifications
-  ]
-}
-```
+Assume your application contains a company-specific user group in the authorization configuration; 2 companies: company X and company Y; and mu-search contains one search index definition for documents. A search index will be generated for documents of company X and another index will be generated for documens of company Y. If a user is granted access to documents of company X as well as for documents of comany Y, a search query performed by this user will be effectuated by combining both search indexes.
 
-To prebuilt indexes on startup the `eager_indexing_groups` option can still be used, but each eager group entry must be singleton list. The group `[ {"name": "clean", "variables": []} ]` must be included.
-
-```javascript
-  "additive_indexes": true,
-  "eager_indexing_groups" : [
-    [ {"name": "clean", "variables": []} ],
-    [ {"name" : "organization-read", "variables" : ["company-x"]} ],
-    [ {"name" : "organization-read", "variables" : ["company-y"]} ]
-  ],
-```
+A typical group to be specified as a single `eager_indexing_group` is `{ "variables": [], "name": "clean" }`. The index will not contain any data, but will be used in the combination to fully match the user's allowed groups.
 
 ### Delta integration
 Mu-search integrates with the delta's generated by [mu-authorization](https://github.com/mu-semtech/mu-authorization) and dispatched by the [delta-notifier](https://github.com/mu-semtech/delta-notifier).
@@ -817,9 +802,6 @@ When a delta notification is handled, the update to be performed is pushed on th
 ```
 
 Increasing the interval has the advantage that updates on the same document will be applied only once, but has the downside that search results will not be up-to-date for a longer time. The optimal value depends on the application (number of updates, indexed properties, user expectations, etc.)
-
-### Searching
-
 
 ### API
 This section describes the REST API provided by mu-search.
@@ -974,12 +956,15 @@ For security reasons, the endpoint is disabled by default. It can be enabled by 
 }
 ```
 
-#### POST `/:type/index`
+#### Admin endpoints
+The admin endpoints can be used to manage the indexes. These endpoints should not be publicly exposed in your application, since they allow 'root' access when no authorization headers are specified on the request.
+
+##### POST `/:type/index`
 Updates the index(es) for the given `:type`. If the request is sent with authorization headers, only the authorized indexes are updated. Otherwise, all indexes for the type are updated.
 
 Type `_all` will update all indexes.
 
-#### POST `/:type/invalidate`
+##### POST `/:type/invalidate`
 Invalidates the index(es) for the given `:type`. If the request is sent with authorization headers, only the authorized indexes are invalidated. Otherwise, all indexes for the type are invalidated.
 
 Type `_all` will invalidate all indexes.
@@ -988,14 +973,14 @@ An invalidated index will be updated before executing a new search query on it.
 
 Note that the search index is only marked as invalid in memory. I.e the index is not removed from Elasticsearch nor the triplestore. Hence, on restart of mu-search, the index will be considered valid again.
 
-#### DELETE `/:type`
+##### DELETE `/:type`
 Deletes the index(es) for the given `:type` in Elasticsearch and the triplestore. If the request is sent with authorization headers, only the authorized indexes are deleted. Otherwise, all indexes for the type are deleted.
 
 Type `_all` will delete all indexes.
 
 A deleted index will be recreated before executing a new search query on it.
 
-#### POST `/update`
+##### POST `/update`
 Processes an update of the delta-notifier. See [delta integration](#delta-integration).
 
 Currenty only delta format v.0.0.1 is supported.
@@ -1006,7 +991,6 @@ This section gives an overview of all configurable options in the search configu
 - (*) **persist_indexes** : flag to enable the persistence of search indexes on startup. Defaults to `false`. See [persist indexes](#persist-indexes).
 - (*) **automatic_index_updates** : flag to apply automatic index updates instead of invalidating indexes on receiving deltas. Defaults to `false`. See [delta integration](#delta-integration).
 - **eager_indexing_groups** : list of user search profiles (list of authorization groups) to be indexed at startup. Defaults to `[]`. See [eager indexes](#eager-indexes).
-- (*) **additive_indexes** : flag to enable [additive indexes](#additive-indexes). Defaults to `false`.
 - (*) **batch_size** : number of documents loaded from the RDF store and indexed together in a single batch. Defaults to 100.
 - (*) **max_batches** : maximum number of batches to index. May result in an incomplete index and should therefore only be used during development. Defaults to 1.
 - (*) **number_of_threads** : number of threads to use during indexing. Defaults to 1.

@@ -1,4 +1,32 @@
 # Changelog
+## v0.9.0-beta.5
+**Fixes**
+- the admin endpoint to delete indexes should now work correctly ( https://github.com/mu-semtech/mu-search/issues/59 )
+- search should no longer be blocked when a new index is created ( https://github.com/mu-semtech/mu-search/issues/42 )
+
+## v0.9.0-beta.4
+**Features**
+-  changes how additive indexes work. search indexes defined in `eager_indexing_groups` can now partially match the user's allowed groups. Indexes will be combined at search time to fully match the incoming allowed groups. If no combination can be found a single index matching the user's allowed groups will be created. This also means additive indexes are no longer opt in, but given proper eager index definitions this should be fully backwards compatible.
+- experimental support for indexing language strings
+
+## v0.9.0-beta.3
+**Fixes**
+- match delta predicates in both directions
+## v0.9.0-beta.2
+**Fixes**
+- fix handling deletion of a resource
+
+**Features**
+- basic highlighting support
+
+## v0.9.0-beta.1
+**Features**
+- better support for composite indexes
+- experimental support for having multiple rdf types in one (non composite) index
+
+**Fixes**
+- misc fixes for delta handling
+
 ## v0.8.0
 ## v0.8.0-beta.4
 **Features**

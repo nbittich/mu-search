@@ -1,4 +1,8 @@
 # Changelog
+## v0.9.0-beta.6
+**Fixes**
+- bump base image to properly listen to signals
+
 ## v0.9.0-beta.5
 **Fixes**
 - the admin endpoint to delete indexes should now work correctly ( https://github.com/mu-semtech/mu-search/issues/59 )

@@ -1,4 +1,8 @@
 # Changelog
+## latest
+**Fixes**
+-  fix escaping of values when handling delta's
+
 ## v0.9.0-beta.6
 **Fixes**
 - bump base image to properly listen to signals

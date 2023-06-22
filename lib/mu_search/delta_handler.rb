@@ -174,11 +174,11 @@ module MuSearch
       if object_type == "uri"
         object_term = sparql_escape_uri(object_value)
       elsif object_language
-        object_term = %(""#{object_value.sparql_escape}""@#{object_language})
+        object_term = %(#{object_value.sparql_escape}@#{object_language})
       elsif object_datatype
-        object_term = %(""#{object_value.sparql_escape}""^^#{sparql_escape_uri(object_datatype)})
+        object_term = %(#{object_value.sparql_escape}^^#{sparql_escape_uri(object_datatype)})
       else
-        object_term = %(""#{object_value.sparql_escape}"")
+        object_term = %(#{object_value.sparql_escape})
       end
 
       # based on the direction of the predicate, determine the target to which the property_path leads

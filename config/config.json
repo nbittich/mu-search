@@ -1,21 +1,48 @@
 {
     "batch_size": 12,
     "max_batches": 1,
-    "automatic_index_updates" : true ,
-    "eager_indexing_groups" : [[{"name" : "documents", "variables" : ["human"]}],
-                               [{"name" : "documents", "variables" : ["chicken"]}]],
-    "attachments_path_base" : "/local/files/directory",
-    "persist_indexes" : false,
-    "default_settings" : {
+    "automatic_index_updates": true,
+    "eager_indexing_groups": [
+        [
+            {
+                "name": "documents",
+                "variables": [
+                    "human"
+                ]
+            }
+        ],
+        [
+            {
+                "name": "documents",
+                "variables": [
+                    "chicken"
+                ]
+            }
+        ]
+    ],
+    "attachments_path_base": "/local/files/directory",
+    "persist_indexes": false,
+    "prefixes": [],
+    "default_settings": {
         "analysis": {
-          "analyzer": {
-            "dutchanalyzer": {
-              "tokenizer": "standard",
-              "filter": ["lowercase", "asciifolding", "dutchstemmer"] } },
-          "filter": {
-            "dutchstemmer": {
-              "type": "stemmer",
-              "name": "dutch" } } } },
+            "analyzer": {
+                "dutchanalyzer": {
+                    "tokenizer": "standard",
+                    "filter": [
+                        "lowercase",
+                        "asciifolding",
+                        "dutchstemmer"
+                    ]
+                }
+            },
+            "filter": {
+                "dutchstemmer": {
+                    "type": "stemmer",
+                    "name": "dutch"
+                }
+            }
+        }
+    },
     "types": [
         {
             "type": "document",
@@ -23,13 +50,13 @@
             "rdf_type": "http://example.org/Document",
             "properties": {
                 "title": "http://purl.org/dc/elements/1.1/title",
-                "description": "http://purl.org/dc/elements/1.1/description" ,
-                "data" : {
-                    "via" : [
+                "description": "http://purl.org/dc/elements/1.1/description",
+                "data": {
+                    "via": [
                         "http://mu.semte.ch/vocabularies/ext/file",
                         "^http://www.semanticdesktop.org/ontologies/2007/01/19/nie#dataSource"
                     ],
-                    "attachment_pipeline" : "attachment"
+                    "attachment_pipeline": "attachment"
                 }
             },
             "mappings": null
@@ -45,8 +72,11 @@
             "mappings": null
         },
         {
-            "type" : "userdoc",
-            "composite_types": ["document", "user"],
+            "type": "userdoc",
+            "composite_types": [
+                "document",
+                "user"
+            ],
             "on_path": "userdocs",
             "properties": [
                 {

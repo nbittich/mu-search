@@ -119,6 +119,7 @@ configure do
 
   sparql_connection_pool = MuSearch::SPARQL::ConnectionPool.new(
     number_of_threads: configuration[:number_of_threads],
+    prefixes: configuration[:prefixes],
     logger: SinatraTemplate::Utils.log
   )
 

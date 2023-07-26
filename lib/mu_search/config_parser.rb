@@ -16,7 +16,8 @@ module MuSearch
         eager_indexing_groups: [],
         update_wait_interval_minutes: 1,
         number_of_threads: 1,
-        enable_raw_dsl_endpoint: false
+        enable_raw_dsl_endpoint: false,
+        prefixes: []
       }
 
       json_config = JSON.parse(File.read(path))
@@ -48,6 +49,7 @@ module MuSearch
         config[:eager_indexing_groups] = json_config["eager_indexing_groups"]
       end
 
+      config[:prefixes] = json_config["prefixes"]
       config[:type_definitions] = Hash[MuSearch::IndexDefinition.from_json_config(json_config["types"])]
       config
     end

@@ -3,18 +3,20 @@ require 'request_store'
 module MuSearch
   module SPARQL
     class ClientWrapper
-      def initialize(logger:, sparql_client:, options:)
+      def initialize(logger:, sparql_client:, options:, prefixes:)
         @logger = logger
         @sparql_client = sparql_client
         @options = options
       end
 
       def query(query_string)
+        query_string = @prefixes + "\n" + query_string
         @logger.debug("SPARQL") { "Executing query with #{@options.inspect}\n#{query_string}" }
         @sparql_client.query query_string, @options
       end
 
       def update(query_string)
+        query_string = @prefixes + "\n" + query_string
         @logger.debug("SPARQL") { "Executing update with #{@options.inspect}\n#{query_string}" }
         @sparql_client.update query_string, @options
       end
@@ -25,7 +27,8 @@ module MuSearch
       # default number of threads to use for indexing and update handling
       DEFAULT_NUMBER_OF_THREADS = 2
 
-      def initialize(logger:, number_of_threads:)
+      def initialize(logger:, number_of_threads:, prefixes:)
+        @prefixes = prefixes.map {|key, value| "prefix #{key}: <#{value}>"} .join("\n")
         @logger = logger
         number_of_threads = DEFAULT_NUMBER_OF_THREADS if number_of_threads <= 0
         @sparql_connection_pool = ::ConnectionPool.new(size: number_of_threads, timeout: 3) do
@@ -106,7 +109,7 @@ module MuSearch
       def with_options(sparql_options)
         @sparql_connection_pool.with do |sparql_client|
           @logger.debug("SPARQL") { "Claimed connection from pool. There are #{@sparql_connection_pool.available} connections left" }
-          client_wrapper = ClientWrapper.new(logger: @logger, sparql_client: sparql_client, options: sparql_options)
+          client_wrapper = ClientWrapper.new(logger: @logger, sparql_client: sparql_client, options: sparql_options, prefixes: @prefixes)
           yield client_wrapper
         end
       end

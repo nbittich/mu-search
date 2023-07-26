@@ -727,6 +727,16 @@ Possible values are `true` and `false`. Defaults to `false`.
 
 Note that if set to `true`, the indexes may be out-of-date if data has changed in the application while mu-search was down.
 
+#### Prefixes
+You can define default prefixes, e.g:
+```json
+prefixes: [
+    {
+        "rdfs": "http://data.vlaanderen.be/ns/besluit#",
+    }    
+]
+
+```
 #### Eager indexes
 Configure indexes to be pre-built when the application starts. For each user search profile for which the indexes needs to be prepared, the authorization group names and their corresponding variables needs to be passed.
 

@@ -85,7 +85,7 @@ Search queries can now be sent to the `/search` endpoint. Make sure the user has
 ### How to persist indexes on restart
 By default search indexes are deleted on (re)start of the mu-search service. This guide describes how to make sure search indexes are persisted on restart. Obviously, this configuration is recommended on production environments.
 
-First, make sure the search indexes are written to a mounted volume my specifying a bind mount to `/usr/share/elasticsearch/data` on the Elasticsearch container.
+First, make sure the search indexes are written to a mounted volume by specifying a bind mount to `/usr/share/elasticsearch/data` on the Elasticsearch container.
 
 ```yml
 services:
@@ -260,7 +260,7 @@ Recreate the mu-search service using
 docker-compose up -d
 ```
 
-After reindex has completed, each indexed project will now contain a property `files` holding the content and metadata of the files linked to the project via `dct:hasPart/^nie:dataSource`.
+After reindex has been completed, each indexed project will now contain a property `files` holding the content and metadata of the files linked to the project via `dct:hasPart/^nie:dataSource`.
 
 Searching the file's content is done using the nested property `content` on the defined field name, `files` in this case:
 
@@ -280,7 +280,7 @@ Make sure not to expose the Kibana dashboard in a production environment!
 
 ## Reference
 ### Search index configuration
-Elasticsearch is used as search engine. It indexes documents according to a specified configuration and provides a REST API to search documents. The mu-search service is a layer in front of Elasticsearch that allows to specify the mapping between RDF triples and the Elasticsearch documents/properties. It also integrates with [mu-authorization](https://github.com/mu-semtech/mu-authorization) making sure users can only search for documents they're allowed to access.
+Elasticsearch is used as a search engine. It indexes documents according to a specified configuration and provides a REST API to search documents. The mu-search service is a layer in front of Elasticsearch that allows to specify the mapping between RDF triples and the Elasticsearch documents/properties. It also integrates with [mu-authorization](https://github.com/mu-semtech/mu-authorization) making sure users can only search for documents they're allowed to access.
 
 This section describes how to configure the resources and properties to be indexed and how to pass Elasticsearch specific configurations and mapping in the mu-search configuration file.
 
@@ -314,7 +314,7 @@ Each type object in the `types` array consists of the following properties:
 ##### Simple properties
 In the simplest scenario, the properties that need to be searchable map one-by-one on a predicate (path) of the resource.
 
-In the example below, a search index per user group will be created for documents and users. The documetns index contains resources of type `foaf:Document`s with a `title` and `description`. The users index contains `foaf:Person`s with only `fullname` as searchable property.
+In the example below, a search index per user group will be created for documents and users. The documents index contains resources of type `foaf:Document`s with a `title` and `description`. The users index contains `foaf:Person`s with only `fullname` as searchable property.
 
 ```javascript
 {
@@ -479,7 +479,7 @@ A nested object is defined by the following properties:
 - **rdf_type** : URI of the rdf:Class of the nested object
 - **properties** : mapping of RDF predicates to properties for the nested object
 
-Objects can be nested to arbitrary depth. The properties object is defined the same way as the properties of the root document, but the properties of a nested object **cannot** contain file attachments.
+Objects can be nested to arbitrary depth. The properties object is defined in the same way as the properties of the root document, but the properties of a nested object **cannot** contain file attachments.
 
 [Elasticsearch mappings](#elasticsearch-mappings) for nested objects must be specified in the `mappings` object at the root type using a path expression as key.
 
@@ -558,7 +558,7 @@ For searching, make sure to either specify the appropriate field (`filter[title.
 It's often advised to configure language specific analyzers for each language, this can be done in the mappings sections of the configuration.
 
 ##### [Experimental] Composite types
-A search index can contain documents of different types. E.g. documents (`foaf:Document`) as well as creative works (`schema:CreativeWork`). Currently, each simple type the composite index is constituted of must be defined seperately in the index configuration as well.
+A search index can contain documents of different types. E.g. documents (`foaf:Document`) as well as creative works (`schema:CreativeWork`). Currently, each simple type the composite index is constituted of must be defined separately in the index configuration as well.
 
 A definition of a composite type index consists of the following properties:
 - **type** : name of the composite type
@@ -645,7 +645,7 @@ To specify Elasticsearch settings for all indexes, use `default_settings` next t
   }
 ```
 
-The content of the `default_settings` object is not elaborated here but can be found in the offical [Elasticsearch documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html). All settings provided in `settings` in the Elasticsearch configuration can be used verbatim in the `default_settings` of mu-search.
+The content of the `default_settings` object is not elaborated here but can be found in the official [Elasticsearch documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html). All settings provided in `settings` in the Elasticsearch configuration can be used verbatim in the `default_settings` of mu-search.
 
 To specify Elasticsearch settings for a single type, use `settings` on the type index specification:
 
@@ -700,7 +700,7 @@ In the mu-search configuration the Elasticsearch mappings can be passed via the 
 }
 ```
 
-The content of the `mappings` object is not elaborated here but can be found in the offical [Elasticsearch documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping.html). All settings provided in `mappings.properties` in the Elasticsearch configuration can be used verbatim in the `es_settings` of mu-search.
+The content of the `mappings` object is not elaborated here but can be found in the official [Elasticsearch documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping.html). All settings provided in `mappings.properties` in the Elasticsearch configuration can be used verbatim in the `es_settings` of mu-search.
 
 ### Index options
 In the base scenario, indexes are created on an as-needed basis, whenever a new search profile (authorization rights and data type) is received. The first search query for a new search profile may therefore take more time to complete, because the index still needs to be built. Indexes can be manually re-indexed by triggering the `POST /:type/index` endpoint (see [below](#api)).
@@ -755,11 +755,11 @@ Configure indexes to be pre-built when the application starts. For each user sea
 Note that if you want to prepare indexes for all user profiles in your application, you will have to provide an entry in the `eager_indexing_groups` list for **each** possible variable value. For example, if you have an authorization group defining a user can only access the data of his company (hence, the company name is a variable of the authorization group), you will need to define an eager index group for each of the possible companies in your application.
 
 #### Additive index access rights
-Additive indexes are indexes that may be combined to respond to a search query in order to fully match the user's authorization groups. If a user is grantend access to multiple groups, indexes will be combined to calculate the response. Therefore, it's strongly adviced the indexes contain non-overlapping data.
+Additive indexes are indexes that may be combined to respond to a search query in order to fully match the user's authorization groups. If a user is granted access to multiple groups, indexes will be combined to calculate the response. Therefore, it's strongly adviced the indexes contain non-overlapping data.
 
 Only indexes that are defined in the `eager_indexing_groups` will be used in combinations. If no combination can be found that fully matches the user's authorization group a single index will be created for the request's authorization groups.
 
-Assume your application contains a company-specific user group in the authorization configuration; 2 companies: company X and company Y; and mu-search contains one search index definition for documents. A search index will be generated for documents of company X and another index will be generated for documens of company Y. If a user is granted access to documents of company X as well as for documents of comany Y, a search query performed by this user will be effectuated by combining both search indexes.
+Assume your application contains a company-specific user group in the authorization configuration; 2 companies: company X and company Y; and mu-search contains one search index definition for documents. A search index will be generated for documents of company X and another index will be generated for documents of company Y. If a user is granted access to documents of company X as well as for documents of company Y, a search query performed by this user will be effectuated by combining both search indexes.
 
 A typical group to be specified as a single `eager_indexing_group` is `{ "variables": [], "name": "clean" }`. The index will not contain any data, but will be used in the combination to fully match the user's allowed groups.
 
@@ -984,7 +984,7 @@ A deleted index will be recreated before executing a new search query on it.
 ##### POST `/update`
 Processes an update of the delta-notifier. See [delta integration](#delta-integration).
 
-Currenty only delta format v.0.0.1 is supported.
+Currently only delta format v.0.0.1 is supported.
 
 ### Configuration options
 This section gives an overview of all configurable options in the search configuration file `config.json`. Most options are explained in more depth in other sections.

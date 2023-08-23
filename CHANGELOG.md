@@ -1,6 +1,9 @@
 # Changelog
 ## latest
 
+## v0.9.0
+- fix: Base image bumped to fix runtime warning (see issue [25](https://github.com/mu-semtech/mu-ruby-template/pull/25) on the mu-ruby-template)
+
 ## v0.9.0-beta.7
 **Fixes**
 -  fix escaping of values when handling delta's

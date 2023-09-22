@@ -19,61 +19,78 @@ module MuSearch
       @sparql_connection_pool = sparql_connection_pool
       @type_definitions = search_configuration[:type_definitions]
       @update_handler = update_handler
+      # FIFO queue of deltas
+      @queue = []
+      @mutex = Mutex.new
+      setup_runner
+    end
+
+        # Setup a runner per thread to handle updates
+    def setup_runner
+      @runner = Thread.new(abort_on_exception: true) do
+        @logger.info("DELTA HANDLER") { "Runner ready for duty" }
+        loop do
+          triple = delta = resource_configs = nil
+          begin
+            @mutex.synchronize do
+              if @queue.length > 0
+                delta = @queue.shift
+              end
+            end
+            if delta
+              triple = delta[:triple]
+              resource_configs = delta[:resource_configs]
+              parse_delta(triple, resource_configs)
+            end
+          rescue StandardError => e
+            @logger.error("DELTA HANDLER") { "Failed processing delta #{delta.pretty_inspect}" }
+            @logger.error("DELTA HANDLER") { e.full_message }
+          end
+          sleep 0.05
+        end
+      end
     end
 
     ##
     # Parses the given delta and triggers the update of affected documents
     # Assumes delta format v0.0.1
-    # TODO add support for other delta formats
     def handle_deltas(deltas)
-      @logger.info("DELTA") { "Received delta update #{deltas.pretty_inspect}" }
+      @logger.debug("DELTA") { "Received delta update #{deltas.pretty_inspect}" }
       if deltas.is_a?(Array)
         @logger.debug("DELTA") { "Delta contains #{deltas.length} changesets" }
         deltas.each do |changeset|
-          changeset["inserts"].uniq.each do |triple|
-            @logger.debug("DELTA") { "Handling inserted triple #{triple.inspect}" }
+          # we combine inserts and deletes to simplify lookups here, we check actual db state later on
+          full_changeset = changeset["inserts"] + changeset["deletes"]
+          full_changeset.uniq.each do |triple|
+            @logger.debug("DELTA") { "Handling triple #{triple.inspect}" }
             search_configs = applicable_index_configurations_for_triple(triple)
             type_names = search_configs.map(&:name)
             @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
-            search_configs.each do |config|
-              subjects = find_root_subjects_for_triple(triple, config).uniq
-              if subjects.length
-                type_name = config.name
-                @logger.info("DELTA") { "Found #{subjects.length} subjects for '#{type_name}' that needs to be updated." }
-                subjects.each { |subject| @update_handler.add_update(subject, type_name) }
-              end
-            end
-          end
-
-          changeset["deletes"].uniq.each do |triple|
-            @logger.debug("DELTA") { "Handling deleted triple #{triple.inspect}" }
-            # for deletes the delete of a type triggers the delete of the document,
-            # all other changes are considered an update
-            search_configs = applicable_index_configurations_for_triple(triple)
-            search_configs.each do |config|
-              if triple["predicate"]["value"] == RDF.type.to_s
-                type_name = config.name
-                subject = triple["subject"]["value"]
-                @logger.info("DELTA") { "#{subject} will be removed from indexes for '#{type_name}'." }
-                @update_handler.add_delete(subject, type_name)
-              else
-                subjects = find_root_subjects_for_triple(triple, config, false)
-                if subjects.length
-                  type_name = config.name
-                  @logger.info("DELTA") { "Found #{subjects.length} subjects for '#{type_name}' that need to be updated." }
-                  subjects.each { |subject| @update_handler.add_update(subject, type_name) }
-                end
-              end
+            @mutex.synchronize do
+              @queue << { triple: triple, resource_configs: search_configs}
             end
           end
         end
       else
         @logger.error("DELTA") { "Received delta does not seem to be in v0.0.1 format. Mu-search currently only supports delta format v0.0.1 " }
+        @logger.error("DELTA") { deltas.pretty_inspect }
       end
     end
 
     private
-
+    ##
+    # queues necessary update of indexes based on received delta
+    # 
+    def parse_delta(triple, resource_configs)
+      resource_configs.each do |config|
+        subjects = find_root_subjects_for_triple(triple, config).uniq
+        if subjects.length
+          type_name = config.name
+          @logger.info("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }
+          subjects.each { |subject| @update_handler.add_update(subject, type_name) }
+        end
+      end
+    end
     ##
     # Find index configs that are impacted by the given triple,
     # i.e. the object is an rdf:Class that is configured as search index

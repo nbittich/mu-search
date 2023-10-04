@@ -1,5 +1,6 @@
 # Changelog
 ## latest
+- fix: Use tagged base image of mu-jruby-template
 
 ## v0.10.0-beta.1
 - change: put delta handling and lookups in a separate thread

@@ -16,10 +16,7 @@ JSON_CONFIG = JSON.parse(<<EOF
   {
       "type": "mandatory",
       "on_path": "mandatories",
-      "rdf_type": "http://data.vlaanderen.be/ns/mandaat#Mandataris",
-      "sub_types": [
-        "http://data.lblod.info/vocabularies/erediensten/EredienstMandataris"
-      ],
+      "rdf_type": ["http://data.vlaanderen.be/ns/mandaat#Mandataris", "http://data.lblod.info/vocabularies/erediensten/EredienstMandataris"],
       "properties": {
         "given_name": [
           "http://data.vlaanderen.be/ns/mandaat#isBestuurlijkeAliasVan",
@@ -119,7 +116,11 @@ RSpec.describe MuSearch::IndexDefinition do
       it "should not match a non specified property" do
         composite_index = subject.select{ |name, index| index.is_composite_index?}[0][1]
         expect(composite_index.matches_property?("http://data.europa.eu/eli/ontology#title")).to be false
+      end
 
+      it "should match the specified types" do
+        composite_index = subject.select{ |name, index| index.is_composite_index?}[0][1]
+        expect(composite_index.matches_type?("http://data.vlaanderen.be/ns/mandaat#Mandataris")).to be true
       end
 
       context "its subindexes" do

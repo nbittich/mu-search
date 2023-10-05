@@ -121,7 +121,7 @@ module MuSearch
     end
 
     def matches_type?(type)
-      related_rdf_types.include?(rdf_type)
+      related_rdf_types.include?(type)
     end
 
     def matches_property?(property)

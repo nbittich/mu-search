@@ -40,7 +40,8 @@ module MuSearch
             if delta
               triple = delta[:triple]
               resource_configs = delta[:resource_configs]
-              parse_delta(triple, resource_configs)
+              is_addition = delta[:is_addition]
+              parse_delta(triple, resource_configs, is_addition)
             end
           rescue StandardError => e
             @logger.error("DELTA HANDLER") { "Failed processing delta #{delta.pretty_inspect}" }
@@ -59,16 +60,11 @@ module MuSearch
       if deltas.is_a?(Array)
         @logger.debug("DELTA") { "Delta contains #{deltas.length} changesets" }
         deltas.each do |changeset|
-          # we combine inserts and deletes to simplify lookups here, we check actual db state later on
-          full_changeset = changeset["inserts"] + changeset["deletes"]
-          full_changeset.uniq.each do |triple|
-            @logger.debug("DELTA") { "Handling triple #{triple.inspect}" }
-            search_configs = applicable_index_configurations_for_triple(triple)
-            type_names = search_configs.map(&:name)
-            @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
-            @mutex.synchronize do
-              @queue << { triple: triple, resource_configs: search_configs}
-            end
+          changeset["inserts"].each do |triple|
+            find_config_and_queue_delta(triple, true)
+          end
+          changeset["deletes"].each do |triple|
+            find_config_and_queue_delta(triple, false)
           end
         end
       else
@@ -77,13 +73,23 @@ module MuSearch
       end
     end
 
+    def find_config_and_queue_delta(triple, is_addition)
+      @logger.debug("DELTA") { "Handling triple #{triple.inspect}" }
+      search_configs = applicable_index_configurations_for_triple(triple)
+      type_names = search_configs.map(&:name)
+      @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
+      @mutex.synchronize do
+        @queue << { triple: triple, resource_configs: search_configs, is_addition: is_addition}
+      end
+    end
+
     private
     ##
     # queues necessary update of indexes based on received delta
     # 
-    def parse_delta(triple, resource_configs)
+    def parse_delta(triple, resource_configs, is_addition)
       resource_configs.each do |config|
-        subjects = find_root_subjects_for_triple(triple, config).uniq
+        subjects = find_root_subjects_for_triple(triple, config, is_addition).uniq
         if subjects.length
           type_name = config.name
           @logger.info("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }

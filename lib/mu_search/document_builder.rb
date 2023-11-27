@@ -36,22 +36,81 @@ module MuSearch
       # we include uuid because it may be used for folding
       properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
 
-      key_value_tuples = properties.collect do |key, prop_config|
+      # We will collect all the properties in one go through a construct
+      # query.  For this to work we first create the information in a
+      # metamodel which we then use to create a CONSTRUCT query and
+      # later to extract the right information from the CONSTRUCT query.
+
+      # Construct a meta model for the information we want to fetch.
+      # This is just a list with some information for each different
+      # property we want to fetch.
+
+      # Build meta model
+      property_query_info = properties.map do |key, prop_config|
         property_definition = PropertyDefinition.from_json_config(key, prop_config)
+        predicate_string = MuSearch::SPARQL.make_predicate_string(property_definition.path)
+
+        Hash({
+          json_key: key,
+          sparql_property_path: predicate_string,
+          escaped_construct_uri: "<http://mu.semte.ch/vocabularies/ext/#{key}>",
+          construct_uri: "http://mu.semte.ch/vocabularies/ext/#{key}",
+          sparql_where_variable: "?#{key}", # TODO: support kebabcase, can be random variable too
+          prop_config: prop_config
+        })
+      end
+
+      # Build sparql query
+      escaped_value_prop = "<http://mu.semte.ch/vocabularies/ext/value>"
+      escaped_source_uri = SinatraTemplate::Utils.sparql_escape_uri(uri)
+
+      construct_portion_list = property_query_info.map do |info|
+        "#{info[:escaped_construct_uri]} #{escaped_value_prop} #{info[:sparql_where_variable]}."
+      end
+
+      where_portion_list = property_query_info.map do |info|
+        "#{escaped_source_uri} #{info[:sparql_property_path]} #{info[:sparql_where_variable]}."
+      end
+
+      query = <<SPARQL
+    CONSTRUCT {
+      #{construct_portion_list.join("\n    ")}
+      }
+      WHERE {
+      {
+        #{where_portion_list.join("\n    \} UNION \{\n      ")}
+      }
+    }
+SPARQL
+
+      # Collect the result into an ES document
+      results =
+        @sparql_client
+          .query(query)
+          .map { |r| r } # we map over this multiple times
+
+      key_value_tuples = property_query_info.collect do |info|
+        prop_config = info[:prop_config]
+        key = info[:json_key]
+        property_definition = PropertyDefinition.from_json_config(key, prop_config)
+        matching_values = results
+                            .select { |result| result.s.to_s == info[:construct_uri].to_s }
+                            .map { |result| result.o }
+
         if property_definition.type == "simple"
-          prop_values = get_property_values(uri, key, property_definition.path)
-          index_value = build_simple_property(prop_values)
+          index_value = build_simple_property(matching_values)
         elsif property_definition.type == "language-string"
+          # TODO: this colud also be handled without an extra query by
+          # adding the language to the value part of the predicate.
           index_value = [get_language_string_map(uri, property_definition.path)]
         elsif property_definition.type == "attachment"
-          prop_values = get_property_values(uri, key, property_definition.path)
-          index_value = build_file_field(prop_values)
+          index_value = build_file_field(matching_values)
         elsif property_definition.type == "nested"
-          prop_values = get_property_values(uri, key, property_definition.path)
-          index_value = build_nested_object(prop_values, prop_config["properties"])
+          index_value = build_nested_object(matching_values, prop_config["properties"])
         else
           raise "unexpected property type #{property_definition.type} is not handled in document builder"
         end
+
         [key, denumerate(index_value)]
       end
       Hash[key_value_tuples]
@@ -105,23 +164,6 @@ SPARQL
         end
       end
       language_map
-    end
-
-    # Selects the value(s) for the given property of a resource
-    # from the triplestore
-    #   - uri: URI of the resource as a string
-    #   - property_key: name of the variable to bind the result to
-    #   - path: predicate path of the property to fetch
-    def get_property_values(uri, property_key, path)
-      predicate_s = MuSearch::SPARQL.make_predicate_string(path)
-      prop_key_s = property_key.gsub(/[^a-zA-Z1-9]/, "")
-      query = <<SPARQL
-    SELECT DISTINCT ?#{prop_key_s} WHERE {
-      #{SinatraTemplate::Utils.sparql_escape_uri(uri)} #{predicate_s} ?#{prop_key_s}
-    }
-SPARQL
-      results = @sparql_client.query(query)
-      results.collect { |result| result[prop_key_s] }
     end
 
     # Get the array of values to index for a given SPARQL result set of simple values.

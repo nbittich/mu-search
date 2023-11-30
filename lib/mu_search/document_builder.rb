@@ -85,18 +85,16 @@ module MuSearch
 SPARQL
 
       # Collect the result into an ES document
-      results =
-        @sparql_client
-          .query(query)
-          .map { |r| r } # we map over this multiple times
+      results = @sparql_client
+                  .query(query)
+                  .group_by { |triple| triple.s.to_s }
 
       key_value_tuples = property_query_info.collect do |info|
         prop_config = info[:prop_config]
         key = info[:json_key]
         property_definition = PropertyDefinition.from_json_config(key, prop_config)
-        matching_values = results
-                            .select { |result| result.s.to_s == info[:construct_uri].to_s }
-                            .map { |result| result.o }
+        matching_triples = results[info[:construct_uri]] || []
+        matching_values = matching_triples.map { |triple| triple.o }
 
         if property_definition.type == "simple"
           index_value = build_simple_property(matching_values)

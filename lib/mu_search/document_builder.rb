@@ -45,17 +45,18 @@ module MuSearch
       # This is just a list with some information for each different
       # property we want to fetch.
 
-      # Build meta model
-      property_query_info = properties.map do |key, prop_config|
+      # Build meta
+      property_query_info = properties.map.with_index do |(key, prop_config), idx|
         property_definition = PropertyDefinition.from_json_config(key, prop_config)
         predicate_string = MuSearch::SPARQL.make_predicate_string(property_definition.path)
+        construct_uri = "http://mu.semte.ch/vocabularies/ext/#{key}"
 
         Hash({
           json_key: key,
           sparql_property_path: predicate_string,
-          escaped_construct_uri: "<http://mu.semte.ch/vocabularies/ext/#{key}>",
-          construct_uri: "http://mu.semte.ch/vocabularies/ext/#{key}",
-          sparql_where_variable: "?#{key}", # TODO: support kebabcase, can be random variable too
+          escaped_construct_uri: SinatraTemplate::Utils.sparql_escape_uri(construct_uri),
+          construct_uri: construct_uri,
+          sparql_where_variable: "?var__#{idx}",
           prop_config: prop_config
         })
       end

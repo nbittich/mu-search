@@ -61,6 +61,8 @@ module MuSearch
     def self.from_json_config(all_definitions)
       all_definitions.collect do |definition|
         name = definition["type"]
+        # ensure uuid is included because it may be used for folding
+        ensure_uuid_in_properties definition["properties"]
         composite_types = []
         if definition["composite_types"]
           composite_types = create_composite_sub_definitions(definition, all_definitions)
@@ -75,6 +77,16 @@ module MuSearch
           settings: definition["settings"]
         )
         [name, index_definition]
+      end
+    end
+
+    def self.ensure_uuid_in_properties properties
+      properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
+      properties.collect do |property_spec|
+        if property_spec.is_a?(Hash) and property_spec.key?("properties")
+          # it's a nested object definition
+          ensure_uuid_in_properties property_spec["properties"]
+        end
       end
     end
 

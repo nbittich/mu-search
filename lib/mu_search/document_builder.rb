@@ -33,9 +33,6 @@ module MuSearch
     #   - uri: URI of the resource to fetch
     #   - properties: Array of properties as configured in the search config
     def fetch_document_to_index(uri: nil, properties: nil)
-      # we include uuid because it may be used for folding
-      properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
-
       # We will collect all the properties in one go through a construct
       # query.  For this to work we first create the information in a
       # metamodel which we then use to create a CONSTRUCT query and

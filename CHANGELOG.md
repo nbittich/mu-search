@@ -1,6 +1,7 @@
 # Changelog
 ## latest
 - fix: Use tagged base image of mu-jruby-template
+- change: Use 1 construct query instead of 1 query per property to fetch properties for a document
 
 ## v0.10.0-beta.1
 - change: put delta handling and lookups in a separate thread

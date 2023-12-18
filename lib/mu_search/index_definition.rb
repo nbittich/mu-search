@@ -82,10 +82,10 @@ module MuSearch
 
     def self.ensure_uuid_in_properties properties
       properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
-      properties.collect do |property_spec|
-        if property_spec.is_a?(Hash) and property_spec.key?("properties")
+      properties.each do |(_key, value)|
+        if value.is_a?(Hash) and value.key?("properties")
           # it's a nested object definition
-          ensure_uuid_in_properties property_spec["properties"]
+          ensure_uuid_in_properties value["properties"]
         end
       end
     end

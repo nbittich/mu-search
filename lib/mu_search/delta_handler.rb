@@ -25,10 +25,10 @@ module MuSearch
       setup_runner
     end
 
-        # Setup a runner per thread to handle updates
+    # Setup a runner per thread to handle updates
     def setup_runner
       @runner = Thread.new(abort_on_exception: true) do
-        @logger.info("DELTA HANDLER") { "Runner ready for duty" }
+        @logger.info("DELTA") { "Runner ready for duty" }
         loop do
           triple = delta = resource_configs = nil
           begin
@@ -44,8 +44,8 @@ module MuSearch
               parse_delta(triple, resource_configs, is_addition)
             end
           rescue StandardError => e
-            @logger.error("DELTA HANDLER") { "Failed processing delta #{delta.pretty_inspect}" }
-            @logger.error("DELTA HANDLER") { e.full_message }
+            @logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
+            @logger.error("DELTA") { e.full_message }
           end
           sleep 0.05
         end
@@ -86,13 +86,13 @@ module MuSearch
     private
     ##
     # queues necessary update of indexes based on received delta
-    # 
+    #
     def parse_delta(triple, resource_configs, is_addition)
       resource_configs.each do |config|
         subjects = find_root_subjects_for_triple(triple, config, is_addition).uniq
         if subjects.length
           type_name = config.name
-          @logger.info("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }
+          @logger.debug("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }
           subjects.each { |subject| @update_handler.add_update(subject, type_name) }
         end
       end

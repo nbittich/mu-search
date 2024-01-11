@@ -41,7 +41,7 @@ module MuSearch
               triple = delta[:triple]
               resource_configs = delta[:resource_configs]
               is_addition = delta[:is_addition]
-              parse_delta(triple, resource_configs, is_addition)
+              handle_queue_entry(triple, resource_configs, is_addition)
             end
           rescue StandardError => e
             @logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
@@ -87,7 +87,7 @@ module MuSearch
     ##
     # queues necessary update of indexes based on received delta
     #
-    def parse_delta(triple, resource_configs, is_addition)
+    def handle_queue_entry(triple, resource_configs, is_addition)
       resource_configs.each do |config|
         subjects = find_root_subjects_for_triple(triple, config, is_addition).uniq
         if subjects.length

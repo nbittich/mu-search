@@ -11,12 +11,12 @@ module MuSearch
 
       def query(query_string)
         @logger.debug("SPARQL") { "Executing query with #{@options.inspect}\n#{query_string}" }
-        @sparql_client.query query_string, @options
+        @sparql_client.query query_string, **@options
       end
 
       def update(query_string)
         @logger.debug("SPARQL") { "Executing update with #{@options.inspect}\n#{query_string}" }
-        @sparql_client.update query_string, @options
+        @sparql_client.update query_string, **@options
       end
     end
 

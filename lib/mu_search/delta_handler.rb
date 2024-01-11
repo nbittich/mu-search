@@ -189,22 +189,22 @@ module MuSearch
       path_to_target_term = MuSearch::SPARQL::make_predicate_string(property_path_to_target)
       path_from_target_term = MuSearch::SPARQL::make_predicate_string(property_path_from_target)
       if object_type == "uri"
-        object_term = sparql_escape_uri(object_value)
+        object_term = Mu::sparql_escape_uri(object_value)
       elsif object_language
         object_term = %(#{object_value.sparql_escape}@#{object_language})
       elsif object_datatype
-        object_term = %(#{object_value.sparql_escape}^^#{sparql_escape_uri(object_datatype)})
+        object_term = %(#{object_value.sparql_escape}^^#{Mu::sparql_escape_uri(object_datatype)})
       else
         object_term = %(#{object_value.sparql_escape})
       end
 
       # based on the direction of the predicate, determine the target to which the property_path leads
-      target_subject_term = is_inverse ? sparql_escape_uri(object_value) : sparql_escape_uri(subject_value)
-      target_object_term = is_inverse ? sparql_escape_uri(subject_value) : object_term
+      target_subject_term = is_inverse ? Mu::sparql_escape_uri(object_value) : Mu::sparql_escape_uri(subject_value)
+      target_object_term = is_inverse ? Mu::sparql_escape_uri(subject_value) : object_term
 
       sparql_query = "SELECT DISTINCT ?s WHERE {\n"
       sparql_query += "\t ?s a ?type. \n"
-      sparql_query += "FILTER(?type IN (#{rdf_types.map{ |rdf_type| sparql_escape_uri(rdf_type)}.join(',')})) . \n"
+      sparql_query += "FILTER(?type IN (#{rdf_types.map{ |rdf_type| Mu::sparql_escape_uri(rdf_type)}.join(',')})) . \n"
       # Check path from start to the triple
       if property_path_to_target.length == 0
         # triple is at the root. We only need to check if it has the correct rdf_type
@@ -212,7 +212,7 @@ module MuSearch
       else
         sparql_query += "\t ?s #{path_to_target_term} #{target_subject_term} . \n"
       end
-      sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n" if is_addition
+      sparql_query += "\t #{Mu::sparql_escape_uri(subject_value)} #{Mu::sparql_escape_uri(predicate_value)} #{object_term} . \n" if is_addition
       # Check path from the triple to the end
       if is_addition && property_path_from_target.length > 0
         sparql_query += "\t #{target_object_term} #{path_from_target_term} ?foo. \n"

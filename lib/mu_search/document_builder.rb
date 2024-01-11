@@ -89,7 +89,7 @@ module MuSearch
       predicate_s = MuSearch::SPARQL.make_predicate_string(path)
       query = <<SPARQL
     SELECT DISTINCT ?value ?language WHERE {
-      #{SinatraTemplate::Utils.sparql_escape_uri(uri)} #{predicate_s} ?value.
+      #{Mu::sparql_escape_uri(uri)} #{predicate_s} ?value.
       BIND(LANG(?value) as ?language)
     }
 SPARQL
@@ -117,7 +117,7 @@ SPARQL
       prop_key_s = property_key.gsub(/[^a-zA-Z1-9]/, "")
       query = <<SPARQL
     SELECT DISTINCT ?#{prop_key_s} WHERE {
-      #{SinatraTemplate::Utils.sparql_escape_uri(uri)} #{predicate_s} ?#{prop_key_s}
+      #{Mu::sparql_escape_uri(uri)} #{predicate_s} ?#{prop_key_s}
     }
 SPARQL
       results = @sparql_client.query(query)
@@ -246,7 +246,7 @@ SPARQL
     ##
     # select sub indexes matching the type(s) of the provided resource
     def relevant_sub_indexes_for(uri, composite_types)
-      types = @sparql_client.query( "SELECT DISTINCT ?type WHERE { #{sparql_escape_uri(uri)} a ?type}").map{ |result| result["type"].to_s }
+      types = @sparql_client.query( "SELECT DISTINCT ?type WHERE { #{Mu::sparql_escape_uri(uri)} a ?type}").map{ |result| result["type"].to_s }
       composite_types.select{ |sub_definition| (sub_definition.related_rdf_types & types).length > 0 }
     end
 

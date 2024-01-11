@@ -28,13 +28,13 @@ require_relative 'framework/jsonapi.rb'
 # WEBrick setup
 ##
 max_uri_length = ENV["MAX_REQUEST_URI_LENGTH"].to_i > 0 ? ENV["MAX_REQUEST_URI_LENGTH"].to_i : 10240
-log.info("SETUP") { "Set WEBrick MAX_URI_LENGTH to #{max_uri_length}" }
+Mu::log.info("SETUP") { "Set WEBrick MAX_URI_LENGTH to #{max_uri_length}" }
 WEBrick::HTTPRequest.const_set("MAX_URI_LENGTH", max_uri_length)
 max_header_length = ENV["MAX_REQUEST_HEADER_LENGTH"].to_i > 0 ? ENV["MAX_REQUEST_HEADER_LENGTH"].to_i : 1024000
-log.info("SETUP") { "Set WEBrick MAX_HEADER_LENGTH to #{max_header_length}" }
+Mu::log.info("SETUP") { "Set WEBrick MAX_HEADER_LENGTH to #{max_header_length}" }
 WEBrick::HTTPRequest.const_set("MAX_HEADER_LENGTH", max_header_length)
 
-SinatraTemplate::Utils.log.formatter = proc do |severity, datetime, progname, msg|
+Mu::log.formatter = proc do |severity, datetime, progname, msg|
   "#{severity} [\##{$$}] #{progname} -- #{msg}\n"
 end
 
@@ -52,8 +52,9 @@ def setup_index_manager(elasticsearch, tika, sparql_connection_pool, config)
      :persist_indexes, :eager_indexing_groups, :number_of_threads,
      :batch_size, :max_batches, :attachment_path_base].include? key
   end
+
   MuSearch::IndexManager.new(
-    logger: SinatraTemplate::Utils.log,
+    logger: Mu::log,
     elasticsearch: elasticsearch,
     tika: tika,
     sparql_connection_pool: sparql_connection_pool,
@@ -70,7 +71,7 @@ def setup_delta_handling(index_manager, elasticsearch, tika, sparql_connection_p
        :attachment_path_base].include? key
     end
     handler = MuSearch::AutomaticUpdateHandler.new(
-      logger: SinatraTemplate::Utils.log,
+      logger: Mu::log,
       index_manager: index_manager,
       elasticsearch: elasticsearch,
       tika: tika,
@@ -81,13 +82,13 @@ def setup_delta_handling(index_manager, elasticsearch, tika, sparql_connection_p
       [:type_definitions, :number_of_threads, :update_wait_interval_minutes].include? key
     end
     handler = MuSearch::InvalidatingUpdateHandler.new(
-      logger: SinatraTemplate::Utils.log,
+      logger: Mu::log,
       index_manager: index_manager,
       search_configuration: search_configuration)
   end
 
   delta_handler = MuSearch::DeltaHandler.new(
-    logger: SinatraTemplate::Utils.log,
+    logger: Mu::log,
     sparql_connection_pool: sparql_connection_pool,
     update_handler: handler,
     search_configuration: { type_definitions: config[:type_definitions] })
@@ -107,28 +108,28 @@ configure do
   tika = Tika.new(
     host: 'tika',
     port: 9998,
-    logger: SinatraTemplate::Utils.log
+    logger: Mu::log
   )
 
   elasticsearch = Elastic.new(
     host: 'elasticsearch',
     port: 9200,
-    logger: SinatraTemplate::Utils.log
+    logger: Mu::log
   )
   set :elasticsearch, elasticsearch
 
   sparql_connection_pool = MuSearch::SPARQL::ConnectionPool.new(
     number_of_threads: configuration[:number_of_threads],
-    logger: SinatraTemplate::Utils.log
+    logger: Mu::log
   )
 
   until elasticsearch.up?
-    log.info("SETUP") { "...waiting for elasticsearch..." }
+    Mu::log.info("SETUP") { "...waiting for elasticsearch..." }
     sleep 1
   end
 
   until sparql_connection_pool.up?
-    log.info("SETUP") { "...waiting for SPARQL endpoint..." }
+    Mu::log.info("SETUP") { "...waiting for SPARQL endpoint..." }
     sleep 1
   end
 
@@ -163,9 +164,9 @@ end
 get "/:path/search" do |path|
   begin
     allowed_groups = get_allowed_groups_with_fallback
-    log.debug("AUTHORIZATION") { "Search request received allowed groups #{allowed_groups}" }
+    Mu::log.debug("AUTHORIZATION") { "Search request received allowed groups #{allowed_groups}" }
   rescue StandardError => e
-    log.error("AUTHORIZATION") { e.full_message }
+    Mu::log.error("AUTHORIZATION") { e.full_message }
     error("Unable to determine authorization groups", 401)
   end
 
@@ -182,7 +183,7 @@ get "/:path/search" do |path|
       common_terms_cutoff_frequency: settings.common_terms_cutoff_frequency
     }
     query_builder = ElasticQueryBuilder.new(
-      logger: SinatraTemplate::Utils.log,
+      logger: Mu::log,
       type_definition: type_def,
       filter: params["filter"],
       page: params["page"],
@@ -192,16 +193,16 @@ get "/:path/search" do |path|
       search_configuration: search_configuration)
 
     if indexes.length == 0
-      log.info("SEARCH") { "No indexes found to search in. Returning empty result" }
+      Mu::log.info("SEARCH") { "No indexes found to search in. Returning empty result" }
       format_search_results(type_def["type"], 0, query_builder.page_number, query_builder.page_size, []).to_json
     else
       search_query = query_builder.build_search_query
 
       while indexes.any? { |index| index.status == :updating }
-        log.info("SEARCH") { "Waiting for indexes to be up-to-date..." }
+        Mu::log.info("SEARCH") { "Waiting for indexes to be up-to-date..." }
         sleep 0.5
       end
-      log.debug("SEARCH") { "All indexes are up to date" }
+      Mu::log.debug("SEARCH") { "All indexes are up to date" }
 
       index_names = indexes.map { |index| index.name }
       search_results = elasticsearch.search_documents indexes: index_names, query: search_query
@@ -212,13 +213,13 @@ get "/:path/search" do |path|
           count_query = query_builder.build_count_query
           elasticsearch.count_documents indexes: index_names, query: count_query
         end
-      log.debug("SEARCH") { "Found #{count} results" }
+      Mu::log.debug("SEARCH") { "Found #{count} results" }
       format_search_results(type_def["type"], count, query_builder.page_number, query_builder.page_size, search_results).to_json
     end
   rescue ArgumentError => e
     error(e.message, 400)
   rescue StandardError => e
-    log.error("SEARCH") { e.full_message }
+    Mu::log.error("SEARCH") { e.full_message }
     error(e.inspect, 500)
   end
 end
@@ -235,9 +236,9 @@ if settings.enable_raw_dsl_endpoint
   post "/:path/search" do |path|
     begin
       allowed_groups = get_allowed_groups_with_fallback
-      log.debug("AUTHORIZATION") { "Search request received allowed groups #{allowed_groups}" }
+      Mu::log.debug("AUTHORIZATION") { "Search request received allowed groups #{allowed_groups}" }
     rescue StandardError => e
-      log.error("AUTHORIZATION") { e.full_message }
+      Mu::log.error("AUTHORIZATION") { e.full_message }
       error("Unable to determine authorization groups", 401)
     end
 
@@ -256,7 +257,7 @@ if settings.enable_raw_dsl_endpoint
       indexes = index_manager.fetch_indexes(type_def["type"], allowed_groups)
 
       if indexes.length == 0
-        log.info("SEARCH") { "No indexes found to search in. Returning empty result" }
+        Mu::log.info("SEARCH") { "No indexes found to search in. Returning empty result" }
         format_search_results(type_def["type"], 0, page_number, page_size, []).to_json
       else
         search_query = @json_body
@@ -264,13 +265,13 @@ if settings.enable_raw_dsl_endpoint
         search_results = elasticsearch.search_documents indexes: index_names, query: search_query
         count_query = search_query.select { |key, _| key != "from" and key != "size" and key != "sort" }
         count = elasticsearch.count_documents indexes: index_names, query: count_query
-        log.debug("SEARCH") { "Found #{count} results" }
+        Mu::log.debug("SEARCH") { "Found #{count} results" }
         format_search_results(type_def["type"], count, page_number, page_size, search_results).to_json
       end
     rescue ArgumentError => e
       error(e.message, 400)
     rescue StandardError => e
-      log.error("SEARCH") { e.full_message }
+      Mu::log.error("SEARCH") { e.full_message }
       error(e.inspect, 500)
     end
   end
@@ -290,9 +291,9 @@ end
 post "/:path/index" do |path|
   begin
     allowed_groups = get_allowed_groups
-    log.debug("AUTHORIZATION") { "Index update request received allowed groups #{allowed_groups || 'none'}" }
+    Mu::log.debug("AUTHORIZATION") { "Index update request received allowed groups #{allowed_groups || 'none'}" }
   rescue StandardError => e
-    log.error("AUTHORIZATION") { e.full_message }
+    Mu::log.error("AUTHORIZATION") { e.full_message }
     error("Unable to determine authorization groups", 401)
   end
 
@@ -330,9 +331,9 @@ end
 post "/:path/invalidate" do |path|
   begin
     allowed_groups = get_allowed_groups
-    log.debug("AUTHORIZATION") { "Index invalidation request received allowed groups #{allowed_groups || 'none'}" }
+    Mu::log.debug("AUTHORIZATION") { "Index invalidation request received allowed groups #{allowed_groups || 'none'}" }
   rescue StandardError => e
-    log.error("AUTHORIZATION") { e.full_message }
+    Mu::log.error("AUTHORIZATION") { e.full_message }
     error("Unable to determine authorization groups", 401)
   end
 
@@ -366,9 +367,9 @@ end
 delete "/:path" do |path|
   begin
     allowed_groups = get_allowed_groups
-    log.debug("AUTHORIZATION") { "Index delete request received allowed groups #{allowed_groups || 'none'}" }
+    Mu::log.debug("AUTHORIZATION") { "Index delete request received allowed groups #{allowed_groups || 'none'}" }
   rescue StandardError => e
-    log.error("AUTHORIZATION") { e.full_message }
+    Mu::log.error("AUTHORIZATION") { e.full_message }
     error("Unable to determine authorization groups", 401)
   end
 

@@ -169,18 +169,23 @@ module MuSearch
       end
     end
 
-    def build_property_paths_for_properties(properties)
+    def build_property_paths_for_properties(properties, root_path = [])
       properties.map do |prop_name, definition|
+        # Ensure path is an array of predicates
         if definition.is_a?(Hash) and !definition["via"].nil?
-          definition = definition["via"]
-        end
-        if definition.is_a?(Array)
-          path = definition
+          path = (root_path + [definition["via"]]).flatten
+
+          # Recursively walk down the nested object definition
+          unless definition["properties"].nil?
+            build_property_paths_for_properties(definition["properties"], path)
+          end
         else
-          path = [definition]
+          path = (root_path + [definition]).flatten
         end
-        path.each do |property|
-          @property_path_cache[property] << path
+
+        # Add cache entry for each predicate the path consists of
+        path.each do |predicate|
+          @property_path_cache[predicate] << path
         end
       end
     end

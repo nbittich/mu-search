@@ -182,9 +182,6 @@ module MuSearch
         path.each do |property|
           @property_path_cache[property] << path
         end
-
-        # TODO add support for nested objects
-        # Properties of the nested objects should also be added to the cache
       end
     end
   end

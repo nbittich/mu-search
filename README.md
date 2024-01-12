@@ -536,6 +536,12 @@ For example:
                   "via": "http://purl.org/dc/elements/1.1/title",
                   "type": "language-string"
                 }
+            },
+            "mappings": {
+              "properties": {
+                "title.default" : { "type" : "text" },
+                "title.en": { "type" : "text" }
+              }
             }
          }
       ]
@@ -544,10 +550,10 @@ For example:
 
 When setting a property type to language-string, mu-search will include the language tag of the literal in the search index. In the above example the title field would be expanded to a language container in the document:
 ```json
-{ 
-  "title": { 
-    "en": "the english title",
-    "default": "this literal had no language tag"
+{
+  "title": {
+    "en": ["the english title"],
+    "default": ["this literal had no language tag"]
   }
 }
 ```

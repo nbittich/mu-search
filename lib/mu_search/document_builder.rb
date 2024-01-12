@@ -123,9 +123,7 @@ SPARQL
         if definition.type == "simple"
           index_value = build_simple_property(matching_values)
         elsif definition.type == "language-string"
-          # TODO: this colud also be handled without an extra query by
-          # adding the language to the value part of the predicate.
-          index_value = [get_language_string_map(uri, definition.path)]
+          index_value = build_language_property(matching_values)
         elsif definition.type == "attachment"
           index_value = build_file_field(matching_values)
         elsif definition.type == "nested"
@@ -138,36 +136,6 @@ SPARQL
       end
 
       Hash[key_value_tuples]
-    end
-
-    # Selects the value(s) and their language for the given property of a resource
-    # from the triplestore
-    #   - uri: URI of the resource as a string
-    #   - path: predicate path of the property to fetch
-    # this groups string per language into their own field so we can maintain clean term frequencies
-    # and configure an analyzer for each (sub)field.
-    # strings without a provided language are mapped into a "default" field
-    # see also https://www.elastic.co/guide/en/elasticsearch/guide/current/one-lang-fields.html
-    def get_language_string_map(uri, path)
-      predicate_s = MuSearch::SPARQL.make_predicate_string(path)
-      query = <<SPARQL
-    SELECT DISTINCT ?value ?language WHERE {
-      #{SinatraTemplate::Utils.sparql_escape_uri(uri)} #{predicate_s} ?value.
-      BIND(LANG(?value) as ?language)
-    }
-SPARQL
-      sparql_results = @sparql_client.query(query)
-      language_map =  Hash.new {|hash, key| hash[key] = [] }
-      sparql_results.each do |result|
-        lang = result[:language].to_s
-        value = result[:value].to_s
-        if ! lang.empty?
-          language_map[lang] << value
-        else
-          language_map["default"] << value
-        end
-      end
-      language_map
     end
 
     # Get the array of values to index for a given SPARQL result set of simple values.
@@ -195,6 +163,28 @@ SPARQL
           value.to_s
         end
       end
+    end
+
+    # Get the array of values to index as language strings for a given SPARQL result set
+    #
+    # Returns an object mapping languages to their values
+    # {
+    #   default: ["My label with lang tag"],
+    #   nl: ["Dutch label"],
+    #   fr: ["French label", "Another label"]
+    # }
+    def build_language_property(literals)
+      language_map = Hash.new {|hash, key| hash[key] = [] }
+      literals.collect do |literal|
+        value = literal.to_s
+        if literal.language?
+          language = literal.language.to_s
+          language_map[language] << value
+        else
+          language_map["default"] << value
+        end
+      end
+      [language_map]
     end
 
     # Get the array of objects to be indexed for a given SPARQL result set

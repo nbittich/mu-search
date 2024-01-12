@@ -1,6 +1,8 @@
 # Changelog
-## latest
+## v0.10.0-beta.2
 - fix: Use tagged base image of mu-jruby-template
+- fix: re-add support for deletes in delta-handling
+- fix: proper support for nested objects in delta handling (note still does not take the nested type into account)
 
 ## v0.10.0-beta.1
 - change: put delta handling and lookups in a separate thread

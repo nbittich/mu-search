@@ -1024,7 +1024,7 @@ The following scopes are known:
 * **ELASTICSEARCH**: all communication with Elasticsearch (default: `error`)
 * **SPARQL**: all communication with the database (default: `warn`)
 * **AUTHORIZATION**: incoming access rights on requests (default: `warn`)
-* **DELTA**: handling of incoming delta's (default: `warn`)
+* **DELTA**: handling of incoming delta's (default: `info`)
 * **UPDATE_HANDLER**: processing of the updates triggered by delta's (default: `info`)
 
 The same log levels as the [mu-ruby-template](https://github.com/mu-semtech/mu-ruby-template) are available:

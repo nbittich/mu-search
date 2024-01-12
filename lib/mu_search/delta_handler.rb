@@ -25,10 +25,10 @@ module MuSearch
       setup_runner
     end
 
-        # Setup a runner per thread to handle updates
+    # Setup a runner per thread to handle updates
     def setup_runner
       @runner = Thread.new(abort_on_exception: true) do
-        @logger.info("DELTA HANDLER") { "Runner ready for duty" }
+        @logger.info("DELTA") { "Runner ready for duty" }
         loop do
           triple = delta = resource_configs = nil
           begin
@@ -40,11 +40,12 @@ module MuSearch
             if delta
               triple = delta[:triple]
               resource_configs = delta[:resource_configs]
-              parse_delta(triple, resource_configs)
+              is_addition = delta[:is_addition]
+              handle_queue_entry(triple, resource_configs, is_addition)
             end
           rescue StandardError => e
-            @logger.error("DELTA HANDLER") { "Failed processing delta #{delta.pretty_inspect}" }
-            @logger.error("DELTA HANDLER") { e.full_message }
+            @logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
+            @logger.error("DELTA") { e.full_message }
           end
           sleep 0.05
         end
@@ -59,16 +60,11 @@ module MuSearch
       if deltas.is_a?(Array)
         @logger.debug("DELTA") { "Delta contains #{deltas.length} changesets" }
         deltas.each do |changeset|
-          # we combine inserts and deletes to simplify lookups here, we check actual db state later on
-          full_changeset = changeset["inserts"] + changeset["deletes"]
-          full_changeset.uniq.each do |triple|
-            @logger.debug("DELTA") { "Handling triple #{triple.inspect}" }
-            search_configs = applicable_index_configurations_for_triple(triple)
-            type_names = search_configs.map(&:name)
-            @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
-            @mutex.synchronize do
-              @queue << { triple: triple, resource_configs: search_configs}
-            end
+          changeset["inserts"].each do |triple|
+            find_config_and_queue_delta(triple, true)
+          end
+          changeset["deletes"].each do |triple|
+            find_config_and_queue_delta(triple, false)
           end
         end
       else
@@ -77,16 +73,26 @@ module MuSearch
       end
     end
 
+    def find_config_and_queue_delta(triple, is_addition)
+      @logger.debug("DELTA") { "Handling triple #{triple.inspect}" }
+      search_configs = applicable_index_configurations_for_triple(triple)
+      type_names = search_configs.map(&:name)
+      @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
+      @mutex.synchronize do
+        @queue << { triple: triple, resource_configs: search_configs, is_addition: is_addition}
+      end
+    end
+
     private
     ##
     # queues necessary update of indexes based on received delta
-    # 
-    def parse_delta(triple, resource_configs)
+    #
+    def handle_queue_entry(triple, resource_configs, is_addition)
       resource_configs.each do |config|
-        subjects = find_root_subjects_for_triple(triple, config).uniq
+        subjects = find_root_subjects_for_triple(triple, config, is_addition).uniq
         if subjects.length
           type_name = config.name
-          @logger.info("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }
+          @logger.debug("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }
           subjects.each { |subject| @update_handler.add_update(subject, type_name) }
         end
       end
@@ -146,7 +152,14 @@ module MuSearch
               # we are not at the end of the path and the object is a literal
               @logger.debug("DELTA") { "Discarding path because object is not a URI, but #{object_type}" }
             else
-              subjects.concat(query_for_subjects_to_triple(triple, config.related_rdf_types, path, i, is_inverse?(property), is_addition))
+              subjects_for_property = query_for_subjects_to_triple(
+                triple,
+                config.related_rdf_types,
+                path,
+                i,
+                is_inverse?(property),
+                is_addition)
+              subjects.concat(subjects_for_property)
             end
           end
         end
@@ -178,6 +191,10 @@ module MuSearch
     def query_for_subjects_to_triple(triple, rdf_types, path, i, is_inverse, is_addition)
       property_path_to_target = path.take(i) # path from start to the triple, excluding the triple itself
       property_path_from_target = path.drop(i + 1) # path from the triple until the end
+      # escaping values for usage in the SPARQL query
+      path_to_target_term = MuSearch::SPARQL::make_predicate_string(property_path_to_target)
+      path_from_target_term = MuSearch::SPARQL::make_predicate_string(property_path_from_target)
+
       subject_value = triple["subject"]["value"]
       predicate_value = triple["predicate"]["value"]
       triple_object = triple["object"]
@@ -185,9 +202,7 @@ module MuSearch
       object_type = triple_object["type"]
       object_datatype = triple_object["datatype"]
       object_language = triple_object["xml:lang"]
-      # escaping values for usage in the SPARQL query
-      path_to_target_term = MuSearch::SPARQL::make_predicate_string(property_path_to_target)
-      path_from_target_term = MuSearch::SPARQL::make_predicate_string(property_path_from_target)
+
       if object_type == "uri"
         object_term = sparql_escape_uri(object_value)
       elsif object_language
@@ -198,24 +213,33 @@ module MuSearch
         object_term = %(#{object_value.sparql_escape})
       end
 
-      # based on the direction of the predicate, determine the target to which the property_path leads
+      rdf_type_terms = rdf_types.map{ |rdf_type| sparql_escape_uri(rdf_type)}
+
+      # Based on the direction of the predicate, determine the target to which the property_path leads
       target_subject_term = is_inverse ? sparql_escape_uri(object_value) : sparql_escape_uri(subject_value)
       target_object_term = is_inverse ? sparql_escape_uri(subject_value) : object_term
 
+      # Build SPARQL query that tries to match the full path in the triplestore
       sparql_query = "SELECT DISTINCT ?s WHERE {\n"
       sparql_query += "\t ?s a ?type. \n"
-      sparql_query += "FILTER(?type IN (#{rdf_types.map{ |rdf_type| sparql_escape_uri(rdf_type)}.join(',')})) . \n"
-      # Check path from start to the triple
+      sparql_query += "FILTER(?type IN (#{rdf_type_terms.join(',')})) . \n"
       if property_path_to_target.length == 0
-        # triple is at the root. We only need to check if it has the correct rdf_type
+        # Triple is at the root. We only need to check if it has the correct rdf_type
         sparql_query += "\t VALUES ?s { #{target_subject_term} } . \n"
       else
+        # Check path from root to the triple
         sparql_query += "\t ?s #{path_to_target_term} #{target_subject_term} . \n"
       end
-      sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n" if is_addition
-      # Check path from the triple to the end
-      if is_addition && property_path_from_target.length > 0
-        sparql_query += "\t #{target_object_term} #{path_from_target_term} ?foo. \n"
+      if is_addition
+        # Check the delta triple itself
+        sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n"
+        # Check path from the triple to the end
+        if property_path_from_target.length > 0
+          sparql_query += "\t #{target_object_term} #{path_from_target_term} ?foo. \n"
+        end
+      # else:
+      #   in case of a deletion, we cannot check the remainder of the path
+      #   as the triple no longer exists in the triplestore
       end
       sparql_query += "}"
 

@@ -14,6 +14,7 @@ module MuSearch
         common_terms_cutoff_frequency: 0.001,
         attachment_path_base: "/data",
         eager_indexing_groups: [],
+        use_exact_counts: false,
         update_wait_interval_minutes: 1,
         number_of_threads: 1,
         enable_raw_dsl_endpoint: false
@@ -30,6 +31,7 @@ module MuSearch
         { name: "persist_indexes", parser: :parse_boolean },
         { name: "enable_raw_dsl_endpoint", parser: :parse_boolean },
         { name: "automatic_index_updates", parser: :parse_boolean },
+        { name: "use_exact_counts", parser: :parse_boolean },
         { name: "attachments_path_base", parser: :parse_string },
         { name: "common_terms_cutoff_frequency", parser: :parse_float },
         { name: "update_wait_interval_minutes", parser: :parse_integer },

@@ -179,7 +179,8 @@ get "/:path/search" do |path|
     indexes = index_manager.fetch_indexes(type_def["type"], allowed_groups)
 
     search_configuration = {
-      common_terms_cutoff_frequency: settings.common_terms_cutoff_frequency
+      common_terms_cutoff_frequency: settings.common_terms_cutoff_frequency,
+      use_exact_counts: settings.use_exact_counts,
     }
     query_builder = ElasticQueryBuilder.new(
       logger: SinatraTemplate::Utils.log,
@@ -207,7 +208,9 @@ get "/:path/search" do |path|
       search_results = elasticsearch.search_documents indexes: index_names, query: search_query
       count =
         if query_builder.collapse_uuids
-          search_results["aggregations"]["type_count"]["value"]
+          search_results.dig("aggregations", "type_count", "value")
+        elsif settings.use_exact_counts
+          search_results.dig("hits", "total", "value")
         else
           count_query = query_builder.build_count_query
           elasticsearch.count_documents indexes: index_names, query: count_query

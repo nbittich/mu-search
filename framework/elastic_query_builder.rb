@@ -86,6 +86,7 @@ class ElasticQueryBuilder
   end
 
   def build_pagination
+    @es_query["track_total_hits"] = true if @configuration[:use_exact_counts]
     @es_query["from"] = @page_number * @page_size
     @es_query["size"] = @page_size
     self

@@ -919,6 +919,8 @@ GET /documents/search?filter[name]=fish&page[number]=2&page[size]=20
 
 The page number is zero-based.
 
+By default the search endpoint doesn't return exact result counts if the result set contains more than 10K items. To enable exact counts pass `count=exact` as query param (at the cost of some performance).
+
 ##### Highlighting
 
 Highlighting is specified using the `highlight[:fields:]` query parameter, where a comma separated list of fields you want highlighted should be provided.
@@ -996,7 +998,6 @@ This section gives an overview of all configurable options in the search configu
 - (*) **max_batches** : maximum number of batches to index. May result in an incomplete index and should therefore only be used during development. Defaults to 1.
 - (*) **number_of_threads** : number of threads to use during indexing. Defaults to 1.
 - (*) **update_wait_interval_minutes** : number of minutes to wait before applying an update. Allows to prevent duplicate updates of the same documents. Defaults to 1.
-- (*) **use_exact_counts** : flag to ensure exact result counts are returned in search requests (at the cost of some performance). Defaults to `false`.
 - (*) **common_terms_cutoff_frequency** : default cutoff frequency for a [Common terms query](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-common-terms-query.html). Defaults to 0.0001. See [supported search methods](#supported-search-methods).
 - (*) **enable_raw_dsl_endpoint** : flag to enable the [raw Elasticsearch DSL endpoint](#api). This endpoint is disabled by default for security reasons.
 - (*) **attachments_path_base** : path inside the Docker container where files for the attachment pipeline are mounted. Defaults to `/data`.

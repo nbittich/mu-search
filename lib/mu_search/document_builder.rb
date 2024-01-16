@@ -24,37 +24,16 @@ module MuSearch
       end
     end
 
-    # Constructs a document to index for the given resource URI and configured properties.
-    #
-    # The properties are queried from the triplestore using the DocumentBuilder's SPARQL client
-    # which is configured with the appropriate mu-auth-allowed-groupds.
-    #
-    # This is your one-stop shop to fetch all info to index a document.
-    #   - uri: URI of the resource to fetch
-    #   - properties: Array of properties as configured in the search config
-    def fetch_document_to_index(uri: nil, properties: nil)
-      # we include uuid because it may be used for folding
-      properties["uuid"] = ["http://mu.semte.ch/vocabularies/core/uuid"] unless properties.key?("uuid")
+    private
 
-      key_value_tuples = properties.collect do |key, prop_config|
-        property_definition = PropertyDefinition.from_json_config(key, prop_config)
-        if property_definition.type == "simple"
-          prop_values = get_property_values(uri, key, property_definition.path)
-          index_value = build_simple_property(prop_values)
-        elsif property_definition.type == "language-string"
-          index_value = [get_language_string_map(uri, property_definition.path)]
-        elsif property_definition.type == "attachment"
-          prop_values = get_property_values(uri, key, property_definition.path)
-          index_value = build_file_field(prop_values)
-        elsif property_definition.type == "nested"
-          prop_values = get_property_values(uri, key, property_definition.path)
-          index_value = build_nested_object(prop_values, prop_config["properties"])
-        else
-          raise "unexpected property type #{property_definition.type} is not handled in document builder"
-        end
-        [key, denumerate(index_value)]
+    # Constructs a document for a regular index
+    #   - uri: URI of the resource to fetch
+    #   - properties: Array of raw properties as configured in the search config
+    def fetch_document_to_index(uri: nil, properties: nil)
+      property_definitions = properties.map do |key, prop_config|
+        PropertyDefinition.from_json_config(key, prop_config)
       end
-      Hash[key_value_tuples]
+      construct_document_to_index(uri: uri, definitions: property_definitions)
     end
 
     ##
@@ -76,7 +55,91 @@ module MuSearch
       merged_document
     end
 
-    private
+    # Constructs a document to index for the given resource URI and property definitions.
+    #
+    # The properties are queried from the triplestore using the DocumentBuilder's SPARQL client
+    # which is configured with the appropriate mu-auth-allowed-groups.
+    #
+    # This is your one-stop shop to query all data to index a document.
+    #   - uri: URI of the resource to fetch
+    #   - definitions: Array of property definitions based on the properties configured in the search config
+    def construct_document_to_index(uri: nil, definitions: property_definitions)
+      # We will collect all the properties in one go through a construct
+      # query.  For this to work we first create the information in a
+      # metamodel which we then use to create a CONSTRUCT query and
+      # later to extract the right information from the CONSTRUCT query.
+
+      # Construct a meta model for the information we want to fetch.
+      # This is just a list with some information for each different
+      # property we want to fetch.
+
+      # Build meta
+      property_query_info = definitions.map.with_index do |definition, idx|
+        predicate_string = MuSearch::SPARQL.make_predicate_string(definition.path)
+        construct_uri = "http://mu.semte.ch/vocabularies/ext/#{definition.name}"
+
+        Hash({
+          construct_uri: construct_uri,
+          sparql_property_path: predicate_string,
+          sparql_where_variable: "?var__#{idx}",
+          property_definition: definition
+        })
+      end
+
+      # Build sparql query
+      escaped_value_prop = "<http://mu.semte.ch/vocabularies/ext/value>"
+      escaped_source_uri = SinatraTemplate::Utils.sparql_escape_uri(uri)
+
+      construct_portion_list = property_query_info.map do |info|
+        escaped_construct_uri = SinatraTemplate::Utils.sparql_escape_uri(info[:construct_uri]),
+        "#{escaped_construct_uri} #{escaped_value_prop} #{info[:sparql_where_variable]}."
+      end
+
+      where_portion_list = property_query_info.map do |info|
+        "#{escaped_source_uri} #{info[:sparql_property_path]} #{info[:sparql_where_variable]}."
+      end
+
+      query = <<SPARQL
+      CONSTRUCT {
+        #{construct_portion_list.join("\n    ")}
+      }
+      WHERE {
+      {
+        #{where_portion_list.join("\n    \} UNION \{\n      ")}
+      }
+    }
+SPARQL
+
+      # Collect the result into an ES document
+      results = @sparql_client
+                  .query(query)
+                  .group_by { |triple| triple.s.to_s }
+
+      key_value_tuples = property_query_info.map do |info|
+        matching_triples = results[info[:construct_uri]] || []
+        matching_values = matching_triples.map { |triple| triple.o }
+        definition = info[:property_definition]
+
+        if definition.type == "simple"
+          index_value = build_simple_property(matching_values)
+        elsif definition.type == "language-string"
+          # TODO: this colud also be handled without an extra query by
+          # adding the language to the value part of the predicate.
+          index_value = [get_language_string_map(uri, definition.path)]
+        elsif definition.type == "attachment"
+          index_value = build_file_field(matching_values)
+        elsif definition.type == "nested"
+          index_value = build_nested_object(matching_values, definition.sub_properties)
+        else
+          raise "Unsupported property type #{definition.type} for property #{definition.name}. Property will not be handled by the document builder"
+        end
+
+        [definition.name, denumerate(index_value)]
+      end
+
+      Hash[key_value_tuples]
+    end
+
     # Selects the value(s) and their language for the given property of a resource
     # from the triplestore
     #   - uri: URI of the resource as a string
@@ -105,23 +168,6 @@ SPARQL
         end
       end
       language_map
-    end
-
-    # Selects the value(s) for the given property of a resource
-    # from the triplestore
-    #   - uri: URI of the resource as a string
-    #   - property_key: name of the variable to bind the result to
-    #   - path: predicate path of the property to fetch
-    def get_property_values(uri, property_key, path)
-      predicate_s = MuSearch::SPARQL.make_predicate_string(path)
-      prop_key_s = property_key.gsub(/[^a-zA-Z1-9]/, "")
-      query = <<SPARQL
-    SELECT DISTINCT ?#{prop_key_s} WHERE {
-      #{Mu::sparql_escape_uri(uri)} #{predicate_s} ?#{prop_key_s}
-    }
-SPARQL
-      results = @sparql_client.query(query)
-      results.collect { |result| result[prop_key_s] }
     end
 
     # Get the array of values to index for a given SPARQL result set of simple values.
@@ -154,9 +200,9 @@ SPARQL
     # Get the array of objects to be indexed for a given SPARQL result set
     # of related resources configured to be indexed as nested object.
     # The properties to be indexed for the nested object are passed as an argument.
-    def build_nested_object(related_resources, nested_properties)
+    def build_nested_object(related_resources, nested_prop_definitions)
       related_resources.collect do |resource_uri|
-        nested_document = fetch_document_to_index(uri: resource_uri, properties: nested_properties)
+        nested_document = construct_document_to_index(uri: resource_uri, definitions: nested_prop_definitions)
         nested_document.merge({ uri: resource_uri })
       end
     end

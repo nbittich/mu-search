@@ -107,7 +107,7 @@ module MuSearch
     def self.validate_config(json_config)
       errors = []
       if ! json_config.has_key?("persist_indexes") || ! json_config["persist_indexes"]
-        SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "persist_indexes is disabled, indexes will be removed from elastic on restart!" }
+        Mu::log.warn("CONFIG_PARSER") { "persist_indexes is disabled, indexes will be removed from elastic on restart!" }
       end
       if json_config.has_key?("eager_indexing_groups")
         errors = errors.concat(self.validate_eager_indexing_groups(json_config["eager_indexing_groups"]))
@@ -118,7 +118,7 @@ module MuSearch
         errors << "no type definitions specified, expected field 'types' not found"
       end
       if errors.length > 0
-        SinatraTemplate::Utils.log.error("CONFIG_PARSER") { errors.join("\n") }
+        Mu::log.error("CONFIG_PARSER") { errors.join("\n") }
         raise "invalid config"
       end
     end
@@ -150,7 +150,7 @@ module MuSearch
         end
 
         if type["rdf_type"].kind_of?(Array)
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} specifies multiple rdf types, this is experimental!" }
+          Mu::log.warn("CONFIG_PARSER") { "#{type["type"]} specifies multiple rdf types, this is experimental!" }
           if type["rdf_type"].length == 0
             errors << "#{type["type"]} has doesn't specify any rdf_type, the array is empty."
           end
@@ -161,7 +161,7 @@ module MuSearch
         end
 
         if type.has_key?("composite_types")
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type, support for composite types is experimental!"}
+          Mu::log.warn("CONFIG_PARSER") { "#{type["type"]} is a composite type, support for composite types is experimental!"}
           errors.concat(validate_composite_type(type, types))
         end
 
@@ -170,7 +170,7 @@ module MuSearch
             errors << "type definition for #{type["type"]} has an index specific mapping, but the mapping does not have the properties field."
           end
         else
-          SinatraTemplate::Utils.log.warn("CONFIG_PARSER") { "field mappings not set for type #{type["type"]}, you may want to add an index specific mapping." }
+          Mu::log.warn("CONFIG_PARSER") { "field mappings not set for type #{type["type"]}, you may want to add an index specific mapping." }
         end
       end
       errors

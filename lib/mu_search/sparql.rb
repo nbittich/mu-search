@@ -1,4 +1,3 @@
-require '/usr/src/app/sinatra_template/utils' # provided by template
 require 'request_store'
 module MuSearch
   module SPARQL
@@ -11,12 +10,12 @@ module MuSearch
 
       def query(query_string)
         @logger.debug("SPARQL") { "Executing query with #{@options.inspect}\n#{query_string}" }
-        @sparql_client.query query_string, @options
+        @sparql_client.query query_string, **@options
       end
 
       def update(query_string)
         @logger.debug("SPARQL") { "Executing update with #{@options.inspect}\n#{query_string}" }
-        @sparql_client.update query_string, @options
+        @sparql_client.update query_string, **@options
       end
     end
 
@@ -120,9 +119,9 @@ module MuSearch
     #   - predicate: Predicate to be escaped.
     def self.predicate_string_term(predicate)
       if predicate.start_with? "^"
-        "^#{SinatraTemplate::Utils.sparql_escape_uri(predicate.slice(1, predicate.length))}"
+        "^#{Mu::sparql_escape_uri(predicate.slice(1, predicate.length))}"
       else
-        SinatraTemplate::Utils.sparql_escape_uri(predicate)
+        Mu::sparql_escape_uri(predicate)
       end
     end
 

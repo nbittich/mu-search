@@ -49,7 +49,7 @@ class Logger
     if level_s
       level_s = level_s.upcase
       if ['UNKNOWN', 'FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG'].include? level_s
-        level_const = Kernel.const_get("Logger::#{level_s}")
+        level_const = Logger.const_get(level_s)
       end
     end
     level_const

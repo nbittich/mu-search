@@ -1,5 +1,5 @@
 pipeline:
-  build-and-push:
+  dry-run:
     image: woodpeckerci/plugin-docker-buildx
     settings:
       platforms: linux/amd64, linux/arm64

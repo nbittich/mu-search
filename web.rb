@@ -9,6 +9,7 @@ require 'open3'
 require 'webrick'
 
 require_relative 'lib/logger.rb'
+require_relative 'lib/sparql-client.rb'
 require_relative 'lib/mu_search/sparql.rb'
 require_relative 'lib/mu_search/authorization_utils.rb'
 require_relative 'lib/mu_search/delta_handler.rb'

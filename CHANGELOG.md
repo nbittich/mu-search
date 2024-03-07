@@ -1,5 +1,7 @@
 # Changelog
 
+- feature: add support to filter by id and URI using filter flags :id: and :uri:
+
 ## v0.10.0-beta.3
 - change: Use 1 construct query instead of 1 query per property to fetch properties for a document
 

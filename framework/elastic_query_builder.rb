@@ -150,6 +150,11 @@ class ElasticQueryBuilder
   # - filter_key: key of the filter param (e.g. :fuzzy:title,description)
   # - value: value of the filter param
   def construct_es_query_term(filter_key, value)
+    # Preprocess syntactic sugar
+    filter_key = ":terms:uuid" if filter_key == ":id:"
+    filter_key = ":terms:_id" if filter_key == ":uri:"
+
+    # Parse filter key
     flag, fields = split_filter filter_key
 
     case flag

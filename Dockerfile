@@ -1,4 +1,4 @@
-FROM semtech/mu-jruby-template:2.13.0
+FROM semtech/mu-jruby-template:3.1.0
 
 LABEL maintainer="redpencil <info@redpencil.io>"
 # 200MB

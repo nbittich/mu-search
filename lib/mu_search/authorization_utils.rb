@@ -55,7 +55,7 @@ def get_allowed_groups_with_fallback
   if allowed_groups.nil?
     # TODO: this isn't very clean and relies on ruby-template internals
     # - Send simple query to mu-auth
-    query("ASK {?s ?p ?o}")
+    Mu::query("ASK {?s ?p ?o}")
     # - Parse allowed groups from mu-ruby-template internals
     allowed_groups = JSON.parse(RequestStore.store[:mu_auth_allowed_groups])
     sort_authorization_groups allowed_groups

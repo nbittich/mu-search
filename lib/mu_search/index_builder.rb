@@ -81,7 +81,7 @@ module MuSearch
     private
     def count_documents(types)
       @sparql_connection_pool.with_authorization(@search_index.allowed_groups) do |client|
-        type_string = types.map{ |type| ::SinatraTemplate::Utils.sparql_escape_uri(type) }.join(',')
+        type_string = types.map{ |type| Mu::sparql_escape_uri(type) }.join(',')
         query = "SELECT (COUNT(?doc) as ?count) WHERE { ?doc a ?type. filter(?type in(#{type_string})) }"
         result = client.query(query)
         documents_count = result.first["count"].to_i
@@ -91,7 +91,7 @@ module MuSearch
 
     def get_documents_for_batch(types, batch_i)
       offset = (batch_i - 1) * @batch_size
-      type_string = types.map{ |type| ::SinatraTemplate::Utils.sparql_escape_uri(type) }.join(',')
+      type_string = types.map{ |type| Mu::sparql_escape_uri(type) }.join(',')
       @sparql_connection_pool.with_authorization(@search_index.allowed_groups) do |client|
         query = "SELECT DISTINCT ?doc WHERE { ?doc a ?type. filter(?type in(#{type_string}))  } LIMIT #{@batch_size} OFFSET #{offset}"
         result = client.query(query)

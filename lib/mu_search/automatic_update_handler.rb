@@ -2,7 +2,6 @@
 
 require_relative 'update_handler'
 require_relative 'document_builder'
-require '/usr/src/app/sinatra_template/utils' # provided by template
 
 module MuSearch
   ##
@@ -13,8 +12,6 @@ module MuSearch
   # and if so remove it from the index
   # this handler takes the configured allowed_groups of an index into account
   class AutomaticUpdateHandler < MuSearch::UpdateHandler
-    include ::SinatraTemplate::Utils
-
     ##
     # creates an automatic update handler
     def initialize(elasticsearch:, tika:, sparql_connection_pool:, search_configuration:, **args)
@@ -96,8 +93,8 @@ module MuSearch
     # assumes rdf_types is an array
     def document_exists_for?(allowed_groups, uri, rdf_types)
       @sparql_connection_pool.with_authorization(allowed_groups) do |sparql_client|
-        rdf_types_string = rdf_types.map { |type| sparql_escape_uri(type) }.join(',')
-        sparql_client.query "ASK {#{sparql_escape_uri(uri)} a ?type. filter(?type in(#{rdf_types_string})) }"
+        rdf_types_string = rdf_types.map { |type| Mu::sparql_escape_uri(type) }.join(',')
+        sparql_client.query "ASK {#{Mu::sparql_escape_uri(uri)} a ?type. filter(?type in(#{rdf_types_string})) }"
       end
     end
   end

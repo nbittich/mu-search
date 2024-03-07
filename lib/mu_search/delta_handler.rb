@@ -204,20 +204,20 @@ module MuSearch
       object_language = triple_object["xml:lang"]
 
       if object_type == "uri"
-        object_term = sparql_escape_uri(object_value)
+        object_term = Mu::sparql_escape_uri(object_value)
       elsif object_language
         object_term = %(#{object_value.sparql_escape}@#{object_language})
       elsif object_datatype
-        object_term = %(#{object_value.sparql_escape}^^#{sparql_escape_uri(object_datatype)})
+        object_term = %(#{object_value.sparql_escape}^^#{Mu::sparql_escape_uri(object_datatype)})
       else
         object_term = %(#{object_value.sparql_escape})
       end
 
-      rdf_type_terms = rdf_types.map{ |rdf_type| sparql_escape_uri(rdf_type)}
+      rdf_type_terms = rdf_types.map{ |rdf_type| Mu::sparql_escape_uri(rdf_type)}
 
       # Based on the direction of the predicate, determine the target to which the property_path leads
-      target_subject_term = is_inverse ? sparql_escape_uri(object_value) : sparql_escape_uri(subject_value)
-      target_object_term = is_inverse ? sparql_escape_uri(subject_value) : object_term
+      target_subject_term = is_inverse ? Mu::sparql_escape_uri(object_value) : Mu::sparql_escape_uri(subject_value)
+      target_object_term = is_inverse ? Mu::sparql_escape_uri(subject_value) : object_term
 
       # Build SPARQL query that tries to match the full path in the triplestore
       sparql_query = "SELECT DISTINCT ?s WHERE {\n"
@@ -232,7 +232,7 @@ module MuSearch
       end
       if is_addition
         # Check the delta triple itself
-        sparql_query += "\t #{sparql_escape_uri(subject_value)} #{sparql_escape_uri(predicate_value)} #{object_term} . \n"
+        sparql_query += "\t #{Mu::sparql_escape_uri(subject_value)} #{Mu::sparql_escape_uri(predicate_value)} #{object_term} . \n"
         # Check path from the triple to the end
         if property_path_from_target.length > 0
           sparql_query += "\t #{target_object_term} #{path_from_target_term} ?foo. \n"

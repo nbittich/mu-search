@@ -1,5 +1,5 @@
 require_relative './search_index'
-require '/usr/src/app/sinatra_template/utils' # provided by template
+
 module MuSearch
   ###
   # The IndexManager keeps track of indexes and their state in:
@@ -8,7 +8,6 @@ module MuSearch
   # - triplestore
   ###
   class IndexManager
-    include ::SinatraTemplate::Utils
     attr_reader :indexes
 
     def initialize(logger:, elasticsearch:, tika:, sparql_connection_pool:, search_configuration:)
@@ -138,7 +137,7 @@ module MuSearch
           index.status = :deleted
         end
       end
-      
+
       indexes_to_remove
     end
 
@@ -394,7 +393,7 @@ SPARQL
       uri = "http://mu.semte.ch/authorization/elasticsearch/indexes/#{uuid}" # TODO update base URI
 
       def groups_term(groups)
-        groups.map { |g| sparql_escape_string g.to_json }.join(",")
+        groups.map { |g| Mu::sparql_escape_string g.to_json }.join(",")
       end
 
       allowed_group_statement = allowed_groups.empty? ? "" : "search:hasAllowedGroup #{groups_term(allowed_groups)} ; "
@@ -430,7 +429,7 @@ DELETE {
 WHERE {
     GRAPH <http://mu.semte.ch/authorization> {
         ?s a <http://mu.semte.ch/vocabularies/authorization/ElasticsearchIndex> ;
-           <http://mu.semte.ch/vocabularies/authorization/indexName> #{sparql_escape_string index_name} ;
+           <http://mu.semte.ch/vocabularies/authorization/indexName> #{Mu::sparql_escape_string index_name} ;
            ?p ?o .
     }
 }
@@ -444,7 +443,7 @@ SPARQL
 SELECT ?index WHERE {
     GRAPH <http://mu.semte.ch/authorization> {
         ?index a <http://mu.semte.ch/vocabularies/authorization/ElasticsearchIndex> ;
-               <http://mu.semte.ch/vocabularies/authorization/indexName> #{sparql_escape_string index_name} .
+               <http://mu.semte.ch/vocabularies/authorization/indexName> #{Mu::sparql_escape_string index_name} .
     }
   } LIMIT 1
 SPARQL

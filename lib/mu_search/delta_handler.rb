@@ -38,13 +38,12 @@ module MuSearch
               end
             end
             if delta
-              triple = delta[:triple]
+              triples = delta[:triples]
               resource_configs = delta[:resource_configs]
-              is_addition = delta[:is_addition]
-              handle_queue_entry(triple, resource_configs, is_addition)
+              handle_queue_entry(triples, resource_configs)
             end
           rescue StandardError => e
-            @logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
+            #@logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
             @logger.error("DELTA") { e.full_message }
           end
           sleep 0.05
@@ -53,50 +52,63 @@ module MuSearch
     end
 
     ##
-    # Parses the given delta and triggers the update of affected documents
+    # Parses the given delta and adds it to the queue to trigger the update of affected documents
     # Assumes delta format v0.0.1
     def handle_deltas(deltas)
       @logger.debug("DELTA") { "Received delta update #{deltas.pretty_inspect}" }
       if deltas.is_a?(Array)
         @logger.debug("DELTA") { "Delta contains #{deltas.length} changesets" }
+        triples = []
         deltas.each do |changeset|
-          changeset["inserts"].each do |triple|
-            find_config_and_queue_delta(triple, true)
-          end
-          changeset["deletes"].each do |triple|
-            find_config_and_queue_delta(triple, false)
-          end
+          triples += changeset["inserts"].map { |triple| triple.merge({ "is_addition" => true }) }
+          triples += changeset["deletes"].map { |triple| triple.merge({ "is_addition" => false }) }
         end
+        find_config_and_queue_delta(triples)
       else
         @logger.error("DELTA") { "Received delta does not seem to be in v0.0.1 format. Mu-search currently only supports delta format v0.0.1 " }
         @logger.error("DELTA") { deltas.pretty_inspect }
       end
     end
 
-    def find_config_and_queue_delta(triple, is_addition)
-      @logger.debug("DELTA") { "Handling triple #{triple.inspect}" }
-      search_configs = applicable_index_configurations_for_triple(triple)
-      type_names = search_configs.map(&:name)
-      @logger.debug("DELTA") { "Triple affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
+
+    private
+
+    ##
+    # Find the affected indexes for a given changeset and add it to the queue
+    #
+    def find_config_and_queue_delta(triples)
+      @logger.debug("DELTA") { "Handling delta: #{triples.inspect}" }
+      search_configs = Set.new
+      triples.each do |triple|
+        triples.each do |triple|
+          search_configs += applicable_index_configurations_for_triple(triple)
+        end
+        type_names = search_configs.map(&:name)
+        @logger.debug("DELTA") { "Delta affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
+      end
+
       @mutex.synchronize do
-        @queue << { triple: triple, resource_configs: search_configs, is_addition: is_addition}
+        @queue << { triples: triples, resource_configs: search_configs }
       end
     end
 
-    private
     ##
     # queues necessary update of indexes based on received delta
     #
-    def handle_queue_entry(triple, resource_configs, is_addition)
+    def handle_queue_entry(triples, resource_configs)
       resource_configs.each do |config|
-        subjects = find_root_subjects_for_triple(triple, config, is_addition).uniq
-        if subjects.length
+        subjects = Set.new
+        triples.each do |triple|
+          subjects += find_root_subjects_for_triple(triple, config, triple["is_addition"])
+        end
+        if subjects.size
           type_name = config.name
           @logger.debug("DELTA") { "Found #{subjects.length} subjects for resource config '#{type_name}' that needs to be updated." }
           subjects.each { |subject| @update_handler.add_update(subject, type_name) }
         end
       end
     end
+
     ##
     # Find index configs that are impacted by the given triple,
     # i.e. the object is an rdf:Class that is configured as search index

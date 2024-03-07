@@ -143,6 +143,8 @@ module MuSearch
     def full_property_paths_for(property)
       if matches_property?(property)
         @property_path_cache[property] + @property_path_cache["^#{property}"]
+      else
+        []
       end
     end
 

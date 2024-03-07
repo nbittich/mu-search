@@ -88,10 +88,10 @@ module MuSearch
 
       # Build sparql query
       escaped_value_prop = "<http://mu.semte.ch/vocabularies/ext/value>"
-      escaped_source_uri = SinatraTemplate::Utils.sparql_escape_uri(uri)
+      escaped_source_uri = Mu::sparql_escape_uri(uri)
 
       construct_portion_list = property_query_info.map do |info|
-        escaped_construct_uri = SinatraTemplate::Utils.sparql_escape_uri(info[:construct_uri]),
+        escaped_construct_uri = Mu::sparql_escape_uri(info[:construct_uri]),
         "#{escaped_construct_uri} #{escaped_value_prop} #{info[:sparql_where_variable]}."
       end
 

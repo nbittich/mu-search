@@ -32,7 +32,7 @@ module MuSearch
         { name: "automatic_index_updates", parser: :parse_boolean },
         { name: "attachments_path_base", parser: :parse_string },
         { name: "common_terms_cutoff_frequency", parser: :parse_float },
-        { name: "update_wait_interval_minutes", parser: :parse_integer },
+        { name: "update_wait_interval_minutes", parser: :parse_float },
         { name: "number_of_threads", parser: :parse_integer }
       ].each do |setting|
         name = setting[:name]

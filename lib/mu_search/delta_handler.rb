@@ -43,7 +43,7 @@ module MuSearch
               handle_queue_entry(triples, resource_configs)
             end
           rescue StandardError => e
-            #@logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
+            @logger.error("DELTA") { "Failed processing delta #{delta.pretty_inspect}" }
             @logger.error("DELTA") { e.full_message }
           end
           sleep 0.05

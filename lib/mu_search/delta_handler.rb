@@ -80,9 +80,7 @@ module MuSearch
       @logger.debug("DELTA") { "Handling delta: #{triples.inspect}" }
       search_configs = Set.new
       triples.each do |triple|
-        triples.each do |triple|
-          search_configs += applicable_index_configurations_for_triple(triple)
-        end
+        search_configs += applicable_index_configurations_for_triple(triple)
         type_names = search_configs.map(&:name)
         @logger.debug("DELTA") { "Delta affects #{type_names.length} search indexes: #{type_names.join(', ')}" }
       end

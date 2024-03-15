@@ -5,6 +5,9 @@
 - Add filter flags :id: and :uri: to filter by id and URI
 - Support wait interval less than 1 min in update handler
 
+**Changes**
+- Determine documents to be updated in Elasticsearch per delta message instead of per triple
+
 ## v0.10.0-beta.3
 - change: Use 1 construct query instead of 1 query per property to fetch properties for a document
 

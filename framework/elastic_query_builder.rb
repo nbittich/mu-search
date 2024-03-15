@@ -3,15 +3,16 @@
 # This is your one-stop shop for the construction of search queries
 # and the mapping of search query params to Elasticsearch Query DSL
 class ElasticQueryBuilder
-  attr_reader :page_number, :page_size, :sort, :collapse_uuids
+  attr_reader :page_number, :page_size, :sort, :collapse_uuids, :use_exact_count
 
-  def initialize(logger:, type_definition:, filter:, page:, sort:, highlight:, collapse_uuids:, search_configuration:)
+  def initialize(logger:, type_definition:, filter:, page:, sort:, count:, highlight:, collapse_uuids:, search_configuration:)
     @logger = logger
     @type_def = type_definition
     @filter = filter
     @page_number = page && page["number"] ? page["number"].to_i : 0
     @page_size = page && page["size"] ? page["size"].to_i : 10
     @sort = sort
+    @use_exact_count = count == "exact"
     @highlight = highlight
     @collapse_uuids = true? collapse_uuids
     @configuration = search_configuration
@@ -86,6 +87,7 @@ class ElasticQueryBuilder
   end
 
   def build_pagination
+    @es_query["track_total_hits"] = true if @use_exact_count
     @es_query["from"] = @page_number * @page_size
     @es_query["size"] = @page_size
     self

@@ -1,9 +1,11 @@
 # Changelog
 
+## v0.10.0-beta.4
 **Features**
 - Add query param to get exact count in search results
 - Add filter flags :id: and :uri: to filter by id and URI
 - Support wait interval less than 1 min in update handler
+- ARM64 builds
 
 **Changes**
 - Determine documents to be updated in Elasticsearch per delta message instead of per triple

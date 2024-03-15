@@ -935,6 +935,8 @@ GET /documents/search?filter[name]=fish&page[number]=2&page[size]=20
 
 The page number is zero-based.
 
+By default the search endpoint doesn't return exact result counts if the result set contains more than 10K items. To enable exact counts pass `count=exact` as query param (at the cost of some performance).
+
 ##### Highlighting
 
 Highlighting is specified using the `highlight[:fields:]` query parameter, where a comma separated list of fields you want highlighted should be provided.

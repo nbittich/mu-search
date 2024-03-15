@@ -1,6 +1,8 @@
 # Changelog
 
-- feature: add support to filter by id and URI using filter flags :id: and :uri:
+**Features**
+- Add query param to get exact count in search results
+- Add filter flags :id: and :uri: to filter by id and URI
 
 ## v0.10.0-beta.3
 - change: Use 1 construct query instead of 1 query per property to fetch properties for a document

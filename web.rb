@@ -189,6 +189,7 @@ get "/:path/search" do |path|
       filter: params["filter"],
       page: params["page"],
       sort: params["sort"],
+      count: params["count"],
       highlight: params["highlight"],
       collapse_uuids: params["collapse_uuids"],
       search_configuration: search_configuration)
@@ -209,7 +210,9 @@ get "/:path/search" do |path|
       search_results = elasticsearch.search_documents indexes: index_names, query: search_query
       count =
         if query_builder.collapse_uuids
-          search_results["aggregations"]["type_count"]["value"]
+          search_results.dig("aggregations", "type_count", "value")
+        elsif query_builder.use_exact_count
+          search_results.dig("hits", "total", "value")
         else
           count_query = query_builder.build_count_query
           elasticsearch.count_documents indexes: index_names, query: count_query

@@ -1,7 +1,7 @@
 {
     "batch_size": 12,
     "max_batches": 1,
-    "automatic_index_updates" : true ,
+    "automatic_index_updates" : true,
     "eager_indexing_groups" : [[{"name" : "documents", "variables" : ["human"]}],
                                [{"name" : "documents", "variables" : ["chicken"]}]],
     "attachments_path_base" : "/local/files/directory",

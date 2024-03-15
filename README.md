@@ -839,6 +839,12 @@ To search for `document`s on multiple fields, combined with 'OR':
 GET /documents/search?filter[name,description]=fish
 ```
 
+To search for `document`s by their URI:
+
+```
+GET /documents/search?filter[:uri:]=http://data.semte.ch/documents/c020b82b-61f6-4264-93c5-aba0d09812d3
+```
+
 ##### Searching in a file property
 To search for a field indexing a file, a specific property of the resulting attachment object must be specified as filter key using the `.`-notation.
 
@@ -858,6 +864,10 @@ GET /documents/search?filter[:term:tag]=fish
 ```
 
 The following sections list the flags that are currently implemented:
+
+###### Identifier queries
+- `:id:` Filter documents by their uuid. Multiple values should be comma-seperated, such as `filter[:id:]=c9e0fe90-3785-4221-9c4b-bda70bd8d83b,e8cbc03a-97e0-4b97-931b-97caa720db14`
+- `:uri:` Filter documents by their URI. Multiple values should be comma-seperated.
 
 ###### Term-level queries
 - `:term:` : [Term query](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-term-query.html)
@@ -924,6 +934,8 @@ GET /documents/search?filter[name]=fish&page[number]=2&page[size]=20
 ```
 
 The page number is zero-based.
+
+By default the search endpoint doesn't return exact result counts if the result set contains more than 10K items. To enable exact counts pass `count=exact` as query param (at the cost of some performance).
 
 ##### Highlighting
 

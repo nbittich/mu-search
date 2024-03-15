@@ -1,5 +1,8 @@
 # Changelog
 
+**Features**
+- Add query param to get exact count in search results
+
 ## v0.10.0-beta.3
 - change: Use 1 construct query instead of 1 query per property to fetch properties for a document
 

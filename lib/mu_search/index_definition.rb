@@ -61,11 +61,15 @@ module MuSearch
     def self.from_json_config(all_definitions)
       all_definitions.collect do |definition|
         name = definition["type"]
-        # ensure uuid is included because it may be used for folding
-        ensure_uuid_in_properties definition["properties"]
         composite_types = []
         if definition["composite_types"]
           composite_types = create_composite_sub_definitions(definition, all_definitions)
+          composite_types.each do |definition|
+            ensure_uuid_in_properties definition.properties
+          end
+        else
+          # ensure uuid is included because it may be used for folding
+          ensure_uuid_in_properties definition["properties"]
         end
         index_definition = IndexDefinition.new(
           name: name,

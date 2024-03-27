@@ -1,4 +1,7 @@
 # Changelog
+## v0.10.0-beta.5
+**Fixes**
+- Fix uuid ensurance for composite type indexes
 
 ## v0.10.0-beta.4
 **Features**

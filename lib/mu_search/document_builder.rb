@@ -122,6 +122,8 @@ SPARQL
 
         if definition.type == "simple"
           index_value = build_simple_property(matching_values)
+        elsif definition.type == "dense-vector"
+          index_value = build_dense_vector_property(matching_values)
         elsif definition.type == "language-string"
           index_value = build_language_property(matching_values)
         elsif definition.type == "attachment"
@@ -162,6 +164,13 @@ SPARQL
         else
           value.to_s
         end
+      end
+    end
+
+    def build_dense_vector_property(values)
+      build_simple_property(values).collect do |value|
+        json = JSON.parse value
+        json.collect(&:to_f)
       end
     end
 

@@ -1,6 +1,6 @@
 module MuSearch
   class PropertyDefinition
-    PROPERTY_TYPES = ["simple", "nested", "attachment", "language-string"]
+    PROPERTY_TYPES = ["simple", "nested", "attachment", "language-string", "dense-vector"]
     attr_reader :name, :type, :rdf_type, :path, :pipeline, :sub_properties
 
     def initialize(name: , path:,  type: "auto", rdf_type: nil, sub_properties:)
@@ -23,6 +23,8 @@ module MuSearch
         path = config["via"].is_a?(Array) ? config["via"] : [config["via"]]
         if config.key?("attachment_pipeline")
           type = "attachment"
+        elsif config.key?("dense_vector")
+          type = "dense-vector"
         elsif config.key?("properties")
           type = "nested"
           sub_properties = config["properties"].map do |subname, subconfig|

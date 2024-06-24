@@ -761,9 +761,11 @@ Configure indexes to be pre-built when the application starts. For each user sea
 Note that if you want to prepare indexes for all user profiles in your application, you will have to provide an entry in the `eager_indexing_groups` list for **each** possible variable value. For example, if you have an authorization group defining a user can only access the data of his company (hence, the company name is a variable of the authorization group), you will need to define an eager index group for each of the possible companies in your application.
 
 #### Additive index access rights
-Additive indexes are indexes that may be combined to respond to a search query in order to fully match the user's authorization groups. If a user is granted access to multiple groups, indexes will be combined to calculate the response. Therefore, it's strongly adviced the indexes contain non-overlapping data.
+Additive indexes are indexes that may be combined to respond to a search query in order to fully match the user's authorization groups. If a user is granted access to multiple groups, indexes will be combined to calculate the response. Therefore, it's strongly adviced the indexes contain non-overlapping data. Otherwise the result set may contain duplicates (see also: [removing duplicate results](https://github.com/mu-semtech/mu-search?tab=readme-ov-file#removing-duplicate-results)).
 
 Only indexes that are defined in the `eager_indexing_groups` will be used in combinations. If no combination can be found that fully matches the user's authorization group a single index will be created for the request's authorization groups.
+
+If data that is needed to build documents of a search index is stored across different authorization groups (e.g. public and an organization specific group), these groups need to be specified together in an eager group and not seperately. Otherwise the search index will only contain 'partial' documents.
 
 Assume your application contains a company-specific user group in the authorization configuration; 2 companies: company X and company Y; and mu-search contains one search index definition for documents. A search index will be generated for documents of company X and another index will be generated for documents of company Y. If a user is granted access to documents of company X as well as for documents of company Y, a search query performed by this user will be effectuated by combining both search indexes.
 

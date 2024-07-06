@@ -269,9 +269,25 @@ GET /documents/search?filter[files.content]=open-source"
 ```
 
 ### How to inspect the content of a search index
-The content of a search index can be inspected by running a [Kibana](https://www.elastic.co/kibana) dashboard on top of Elasticseach.
+The content of a search index can be inspected by running a [Kibana](https://www.elastic.co/kibana) dashboard on top of Elasticseach by adding the following snippet to your `docker-compose.override.yml`
 
-[To be completed...]
+```yaml
+services:
+  kibana:
+    image: docker.elastic.co/kibana/kibana-oss:7.6.2
+    ports:
+      - 127.0.0.1:5601:5601
+    user: root
+    command: |
+      sh -c "/usr/local/bin/kibana-docker --allow-root;"
+```
+
+Start the container
+```bash
+docker-compose up -d kibana
+```
+
+Once Kibana has started the dashboard is available at http://localhost:5601
 
 Make sure not to expose the Kibana dashboard in a production environment!
 

@@ -47,7 +47,7 @@ module MuSearch
       if json_config["eager_indexing_groups"]
         config[:eager_indexing_groups] = json_config["eager_indexing_groups"]
       end
-
+      config[:ignored_allowed_groups] = json_config["ignored_allowed_groups"] || []
       config[:type_definitions] = Hash[MuSearch::IndexDefinition.from_json_config(json_config["types"])]
       config
     end
@@ -117,10 +117,31 @@ module MuSearch
       else
         errors << "no type definitions specified, expected field 'types' not found"
       end
+      if json_config.has_key?("ignored_allowed_groups")
+        errors = errors.concat(self.validate_ignored_allowed_groups(json_config["ignored_allowed_groups"]))
+      end
       if errors.length > 0
         Mu::log.error("CONFIG_PARSER") { errors.join("\n") }
         raise "invalid config"
       end
+    end
+
+    def self.validate_ignored_allowed_groups(groups)
+      errors = []
+      if ! groups.kind_of?(Array)
+        errors << "ignored_allowed_groups should be an array"
+      else
+        groups.each do |group|
+          if ! group.kind_of?(Hash)
+            errors << "ignored_allowed_group is not an object: #{group.inspect}"
+          else
+            if ! group.has_key?("name") && group.has_key?("variables")
+              errors << "ignored_allowed_group should have both name and variables set: #{group.inspect}"
+            end
+          end
+        end
+      end
+      errors
     end
 
     ##

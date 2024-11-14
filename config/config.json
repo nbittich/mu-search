@@ -4,6 +4,9 @@
     "automatic_index_updates" : true,
     "eager_indexing_groups" : [[{"name" : "documents", "variables" : ["human"]}],
                                [{"name" : "documents", "variables" : ["chicken"]}]],
+    "ignored_allowed_groups": [
+      { "variables": [], "name": "clean" }
+    ],
     "attachments_path_base" : "/local/files/directory",
     "persist_indexes" : false,
     "default_settings" : {

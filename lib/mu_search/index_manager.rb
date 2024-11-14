@@ -8,7 +8,7 @@ module MuSearch
   # - triplestore
   ###
   class IndexManager
-    attr_reader :indexes
+    attr_reader :indexes, :ignored_allowed_groups
 
     def initialize(logger:, elasticsearch:, tika:, sparql_connection_pool:, search_configuration:)
       @logger = logger
@@ -18,7 +18,7 @@ module MuSearch
       @master_mutex = Mutex.new
       @configuration = search_configuration
       @indexes = {} # indexes per type
-
+      @ignored_allowed_groups = search_configuration[:ignored_allowed_groups]
       initialize_indexes
     end
 
@@ -200,7 +200,10 @@ module MuSearch
     # TODO take used_groups into account when they are supported by mu-authorization
     def ensure_index_combination_for_groups(type_name, allowed_groups, used_groups = [])
       @logger.debug("INDEX MGMT") { "Trying to combine indexes in cache for type '#{type_name}' to match allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
-
+      if !ignored_allowed_groups.empty?
+        @logger.debug("INDEX MGMT") { "Ignoring the following allowed groups: #{ignored_allowed_groups.inspect}" }
+        allowed_groups.reject!{ |ag| ignored_allowed_groups.include? ag }
+      end
       indexes = @indexes[type_name].values.find_all(&:eager_index?)
       @logger.debug("INDEX MGMT") { "Currently known indexes for type '#{type_name}': #{indexes.map(&:allowed_groups).to_json}" }
       # Find all indexes with allowed_groups that are a subset of the given allowed_groups

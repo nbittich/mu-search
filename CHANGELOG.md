@@ -1,4 +1,8 @@
 # Changelog
+## Unreleased
+**Features**
+- added ignored groups: groups that should not be taken into account when searching
+
 ## v0.10.0
 **Fixes**
 - [#92](https://github.com/mu-semtech/mu-search/issues/92) fix restoring update-handler if file exceeds 3MB

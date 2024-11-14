@@ -52,7 +52,8 @@ def setup_index_manager(elasticsearch, tika, sparql_connection_pool, config)
   search_configuration = config.select do |key|
     [:type_definitions, :default_index_settings,
      :persist_indexes, :eager_indexing_groups, :number_of_threads,
-     :batch_size, :max_batches, :attachment_path_base].include? key
+     :batch_size, :max_batches, :attachment_path_base,
+     :ignored_allowed_groups].include? key
   end
 
   MuSearch::IndexManager.new(

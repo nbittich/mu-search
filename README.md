@@ -15,7 +15,7 @@ Next, add the mu-search and accompanying elasticsearch service to `docker-compos
 ```yml
 services:
   search:
-    image: semtech/mu-search:0.9.0
+    image: semtech/mu-search:0.10.0
     links:
       - db:database
     volumes:
@@ -222,7 +222,7 @@ Next, add the following mounted volumes to the mu-search service in `docker-comp
 ```yml
 services:
   search:
-    image: semtech/mu-search:0.9.0
+    image: semtech/mu-search:0.10.0
     volumes:
       - ./config/search:/config
       - ./data/files:/data

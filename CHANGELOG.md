@@ -1,4 +1,8 @@
 # Changelog
+## v0.10.0
+**Fixes**
+- [#92](https://github.com/mu-semtech/mu-search/issues/92) fix restoring update-handler if file exceeds 3MB
+
 ## v0.10.0-beta.5
 **Fixes**
 - Fix uuid ensurance for composite type indexes

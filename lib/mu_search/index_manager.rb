@@ -209,7 +209,15 @@ module MuSearch
       @logger.debug("INDEX MGMT") { "Trying to combine indexes in cache for type '#{type_name}' to match allowed_groups #{allowed_groups} and used_groups #{used_groups}" }
       if !ignored_allowed_groups.empty?
         @logger.debug("INDEX MGMT") { "Ignoring the following allowed groups: #{ignored_allowed_groups.inspect}" }
-        allowed_groups.reject!{ |ag| ignored_allowed_groups.include? ag }
+        allowed_groups.reject! do |allowed_group|
+          ignored_allowed_groups.any? do |ignored_allowed_group|
+            ignored_allowed_group["name"] == allowed_group["name"] \
+            && ignored_allowed_group["variables"].length == allowed_group["variables"].length \
+            && ignored_allowed_group["variables"].zip(allowed_group["variables"]).all? do |ignored_var, allowed_var|
+              ignored_var == "*" || ignored_var == allowed_var
+            end
+          end
+        end
       end
       indexes = @indexes[type_name].values.find_all(&:eager_index?)
       @logger.debug("INDEX MGMT") { "Currently known indexes for type '#{type_name}': #{indexes.map(&:allowed_groups).to_json}" }

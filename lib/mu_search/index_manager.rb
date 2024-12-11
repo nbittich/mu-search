@@ -248,7 +248,9 @@ module MuSearch
           eager_index_group = eager_index_groups.first
           eager_index_group["name"] == allowed_group["name"] \
           and eager_index_group["variables"].length == allowed_group["variables"].length \
-          and eager_index_group["variables"].all? { |variable| variable == "*" }
+          and eager_index_group["variables"].zip(allowed_group["variables"]).all? do |eager_var, allowed_var|
+            eager_var == "*" || eager_var == allowed_var
+          end
         end
       end
 

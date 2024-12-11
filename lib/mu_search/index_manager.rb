@@ -162,14 +162,21 @@ module MuSearch
         total = @configuration[:eager_indexing_groups].length * @configuration[:type_definitions].keys.length
         count = 0
         @configuration[:eager_indexing_groups].each do |allowed_groups|
+          is_dynamic = allowed_groups.map { |group | group["variables"] }.flatten!.any? "*"
+
           @configuration[:type_definitions].keys.each do |type_name|
             count = count + 1
-            index = ensure_index(type_name, allowed_groups, [], true)
-            @logger.info("INDEX MGMT") { "(#{count}/#{total}) Eager index #{index.name} created for type '#{index.type_name}' and allowed_groups #{allowed_groups}. Current status: #{index.status}." }
-            if index.status == :invalid
-              @logger.info("INDEX MGMT") { "Eager index #{index.name} not up-to-date. Start reindexing documents." }
-              index_documents index
-              index.status = :valid
+
+            if is_dynamic
+              @logger.info("INDEX MGMT") { "(#{count}/#{total}) Eager index for type '#{type_name}' and allowed_groups #{allowed_groups} contains a dynamic segment. Index will be built with filled in pattern at search time." }
+            else
+              index = ensure_index(type_name, allowed_groups, [], true)
+              @logger.info("INDEX MGMT") { "(#{count}/#{total}) Eager index #{index.name} created for type '#{index.type_name}' and allowed_groups #{allowed_groups}. Current status: #{index.status}." }
+              if index.status == :invalid
+                @logger.info("INDEX MGMT") { "Eager index #{index.name} not up-to-date. Start reindexing documents." }
+                index_documents index
+                index.status = :valid
+              end
             end
           end
         end
@@ -220,8 +227,32 @@ module MuSearch
         end
       end
 
+      # Create missing indexing if they are configured as eager index with '*'
+      missing_allowed_groups = allowed_groups.reject do |allowed_group|
+        minimal_matching_indexes.any? do |idx|
+          idx.allowed_groups.include? allowed_group
+        end
+      end
+
+      all_missing_allowed_groups_dynamic_and_eager = missing_allowed_groups.all? do |allowed_group|
+        @configuration[:eager_indexing_groups].any? do |eager_index_groups|
+          # We currently assume only 1 group spec in a dynamic eager index
+          eager_index_group = eager_index_groups.first
+          eager_index_group["name"] == allowed_group["name"] \
+          and eager_index_group["variables"].length == allowed_group["variables"].length \
+          and eager_index_group["variables"].all? { |variable| variable == "*" }
+        end
+      end
+
+      if all_missing_allowed_groups_dynamic_and_eager
+        missing_allowed_groups.each do |allowed_group|
+          minimal_matching_indexes << ensure_index(type_name, [allowed_group], used_groups)
+        end
+      end
+
       # Verify whether allowed_groups match is complete.
       # I.e. the combination of allowed groups of the matching indexes cover the given allowed_groups
+      # Should now be equivalent to all_missing_allowed_groups_dynamic_and_eager.
       is_complete_match = allowed_groups.all? do |allowed_group|
         minimal_matching_indexes.any? do |idx|
           idx.allowed_groups.include? allowed_group

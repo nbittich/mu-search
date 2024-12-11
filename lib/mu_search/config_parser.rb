@@ -223,6 +223,7 @@ module MuSearch
     #
     def self.validate_eager_indexing_groups(groups)
       errors = []
+
       groups.each do |group|
         unless group.kind_of?(Array)
           errors << "invalid eager indexing groups, each group should be an array. #{group.inspect} is not"
@@ -232,7 +233,13 @@ module MuSearch
             errors << "invalid eager indexing group: #{group.inspect}."
           end
         end
+
+        has_wildcards = group.map { |access_right | access_right["variables"] }.flatten!.any? "*"
+        if group.length > 1 and has_wildcards
+          errors << "Eager indexing group with wildcard variables may contain only 1 access right. #{group.inspect} contains #{group.length}."
+        end
       end
+
       errors
     end
   end

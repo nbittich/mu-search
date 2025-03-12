@@ -184,6 +184,26 @@ class ElasticQueryBuilder
           terms: { field => value.split(",") }
         }
       end
+    when "geo"
+      ensure_single_field_for flag, fields do |field|
+        query = value.split(",") # just for the poc
+        lat = query[0].to_f
+        lon = query[1].to_f
+        distance = query[2]
+        {
+           bool: {
+              filter: {
+                geo_distance: {
+                  distance: distance,
+                  field => {
+                      lat: lat,
+                      lon: lon
+                  }
+                }
+              }
+            }
+        }
+      end
     when "fuzzy_phrase"
       ensure_single_field_for flag, fields do |field|
         clauses = value.split(" ").map do |word|

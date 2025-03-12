@@ -1,6 +1,9 @@
 FROM semtech/mu-jruby-template:3.1.0
 
 LABEL maintainer="redpencil <info@redpencil.io>"
+
+RUN apt update && apt install gdal-bin -y
+
 # 200MB
 ENV MAXIMUM_FILE_SIZE="209715200"
 # seconds

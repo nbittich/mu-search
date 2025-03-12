@@ -2,6 +2,8 @@
 
 require '/usr/src/app/sinatra_template/utils' # provided by template
 require_relative './property_definition'
+
+
 module MuSearch
   ##
   # This class is responsible for building JSON documents from an IndexDefinition
@@ -12,7 +14,7 @@ module MuSearch
       @attachment_path_base = attachment_path_base
       @cache_path_base = "/cache/"
       @logger = logger
-    end
+end
 
     ##
     # Builds a document to index for the given resource URI and index_definition
@@ -120,8 +122,12 @@ SPARQL
         matching_values = matching_triples.map { |triple| triple.o }
         definition = info[:property_definition]
 
+        @logger.info("definition type #{definition.type}, lambert?" )
+
         if definition.type == "simple"
           index_value = build_simple_property(matching_values)
+        elsif definition.type == "lambert-72"
+          index_value = build_lambert_property(matching_values)
         elsif definition.type == "language-string"
           index_value = build_language_property(matching_values)
         elsif definition.type == "attachment"
@@ -136,6 +142,21 @@ SPARQL
       end
 
       Hash[key_value_tuples]
+    end
+
+    def build_lambert_property(values)
+        loc_map = Hash.new {|hash, key| hash[key] = 0.0}
+        values.collect do |value|
+            ## assuming <http://www.opengis.net/def/crs/EPSG/0/31370> POINT(160167.27757517056 168249.60765740927)
+            match = value.to_s.match(/POINT\(([\d.]+)\s([\d.]+)\)/)
+            x_lambert = match[1].to_f  
+            y_lambert = match[2].to_f
+            output = `echo "#{x_lambert} #{y_lambert}" | gdaltransform -s_srs EPSG:31370 -t_srs EPSG:4326`
+            lon, lat, _ = output.split(' ')
+            loc_map["lon"] = lon
+            loc_map["lat"] = lat
+        end
+        [loc_map]
     end
 
     # Get the array of values to index for a given SPARQL result set of simple values.

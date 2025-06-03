@@ -157,7 +157,9 @@ SPARQL
             loc_map["lon"] = lon
             loc_map["lat"] = lat
         end
-        [loc_map]
+        
+        loc_map.empty? ? nil : [loc_map]
+
     end
 
     # Get the array of values to index for a given SPARQL result set of simple values.

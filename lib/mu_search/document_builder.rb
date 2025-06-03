@@ -141,13 +141,12 @@ SPARQL
 
       Hash[key_value_tuples]
     end
-
     def build_lambert_property(values)
         loc_map = Hash.new {|hash, key| hash[key] = 0.0}
         values.collect do |value|
             ## assuming <http://www.opengis.net/def/crs/EPSG/0/31370> POINT(160167.27757517056 168249.60765740927)
             match = value.to_s.match(/POINT\(([\d.]+)\s([\d.]+)\)/)
-            next unless match && match.length == 2
+            next unless match && match.length == 3
             x_lambert = match[1].to_f  
             y_lambert = match[2].to_f
             next unless x_lambert && y_lambert

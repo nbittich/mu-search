@@ -158,7 +158,7 @@ SPARQL
             loc_map["lat"] = lat
         end
         
-        loc_map.empty? ? nil : [loc_map]
+        loc_map.empty? ? [] : [loc_map]
 
     end
 

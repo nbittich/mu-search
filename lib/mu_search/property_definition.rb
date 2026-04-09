@@ -2,7 +2,7 @@ require_relative './prefix_utils'
 
 module MuSearch
   class PropertyDefinition
-    PROPERTY_TYPES = ["simple", "nested", "attachment", "language-string"]
+    PROPERTY_TYPES = ["simple", "nested", "attachment", "language-string", "lambert-72"]
     attr_reader :name, :type, :rdf_type, :path, :pipeline, :sub_properties
 
     def initialize(name: , path:,  type: "auto", rdf_type: nil, sub_properties:)
@@ -31,8 +31,12 @@ module MuSearch
             from_json_config(subname, subconfig, prefixes)
           end
           rdf_type = config["rdf_type"]
-        elsif config.key?("type") && config["type"] == "language-string"
-          type = "language-string"
+        elsif config.key?("type") 
+            if config["type"] == "language-string"
+                type = "language-string"
+            elsif config["type"] == "lambert-72"
+                type = "lambert-72"
+            end
         end
       elsif config.is_a?(Array)
         path = config

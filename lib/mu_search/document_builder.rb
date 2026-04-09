@@ -118,6 +118,8 @@ SPARQL
 
         if definition.type == "simple"
           index_value = build_simple_property(matching_values)
+        elsif definition.type == "lambert-72"
+          index_value = build_lambert_property(matching_values)
         elsif definition.type == "language-string"
           index_value = build_language_property(matching_values)
         elsif definition.type == "attachment"
@@ -132,6 +134,26 @@ SPARQL
       end
 
       Hash[key_value_tuples]
+    end
+
+    def build_lambert_property(values)
+        loc_map = Hash.new {|hash, key| hash[key] = 0.0}
+        values.collect do |value|
+            ## assuming <http://www.opengis.net/def/crs/EPSG/0/31370> POINT(160167.27757517056 168249.60765740927)
+            match = value.to_s.match(/POINT\(([\d.]+)\s([\d.]+)\)/)
+            next unless match && match.length == 3
+            x_lambert = match[1].to_f  
+            y_lambert = match[2].to_f
+            next unless x_lambert && y_lambert
+            output = `echo "#{x_lambert} #{y_lambert}" | gdaltransform -s_srs EPSG:31370 -t_srs EPSG:4326`
+            lon, lat, _ = output.split(' ')
+            next unless lon && lat
+            loc_map["lon"] = lon
+            loc_map["lat"] = lat
+        end
+
+        loc_map.empty? ? [] : [loc_map]
+
     end
 
     # Get the array of values to index for a given SPARQL result set of simple values.

@@ -186,8 +186,10 @@ class ElasticQueryBuilder
     when "geo"
       ensure_single_field_for flag, fields do |field|
         query = value.split(",") # just for the poc
-        lat = query[0].to_f
-        lon = query[1].to_f
+        x_lambert = query[0].to_f
+        y_lambert = query[1].to_f
+        output = `echo "#{x_lambert} #{y_lambert}" | gdaltransform -s_srs EPSG:31370 -t_srs EPSG:4326`
+        lon, lat, _ = output.split(' ')
         distance = query[2]
         {
            bool: {
@@ -195,8 +197,8 @@ class ElasticQueryBuilder
                 geo_distance: {
                   distance: distance,
                   field => {
-                      lat: lat,
-                      lon: lon
+                      lat: lat.to_f,
+                      lon: lon.to_f
                   }
                 }
               }

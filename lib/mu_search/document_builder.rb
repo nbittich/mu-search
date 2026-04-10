@@ -148,8 +148,8 @@ SPARQL
             output = `echo "#{x_lambert} #{y_lambert}" | gdaltransform -s_srs EPSG:31370 -t_srs EPSG:4326`
             lon, lat, _ = output.split(' ')
             next unless lon && lat
-            loc_map["lon"] = lon
-            loc_map["lat"] = lat
+            loc_map["lon"] = lon.to_f
+            loc_map["lat"] = lat.to_f
         end
 
         loc_map.empty? ? [] : [loc_map]

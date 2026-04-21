@@ -91,18 +91,10 @@ module MuSearch
         "#{escaped_construct_uri} #{escaped_value_prop} #{info[:sparql_where_variable]}."
       end
 
-      # handle union
       where_portion_list = property_query_info.map do |info|
-        path = info[:sparql_property_path]
-
-        if path.include?("|")
-          path.split("|").map do |p|
-            "{ #{escaped_source_uri} #{p.strip} #{info[:sparql_where_variable]}. }"
-          end.join(" UNION ")
-        else
-          "{ #{escaped_source_uri} #{path} #{info[:sparql_where_variable]}. }"
-        end
+        "#{escaped_source_uri} #{info[:sparql_property_path]} #{info[:sparql_where_variable]}."
       end
+      
       query = <<SPARQL
       CONSTRUCT {
         #{construct_portion_list.join("\n    ")}

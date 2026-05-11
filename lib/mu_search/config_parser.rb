@@ -12,7 +12,7 @@ module MuSearch
       default_configuration = {
         batch_size: 100,
         common_terms_cutoff_frequency: 0.001,
-        attachment_path_base: "/data",
+        attachment_path_base: "/share",
         eager_indexing_groups: [],
         update_wait_interval_minutes: 1,
         number_of_threads: 1,

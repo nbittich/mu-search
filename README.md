@@ -20,10 +20,9 @@ services:
       - db:database
     volumes:
       - ./config/search:/config
+      - ./data/search:/data
   elasticsearch:
     image: semtech/mu-search-elastic-backend:1.3.0
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
     environment:
       - discovery.type=single-node
 volumes:
@@ -224,8 +223,8 @@ services:
 ```
 
 Next, add the following mounted volumes to the mu-search service in `docker-compose.yml`:
-- `/data`: folder containing the files to be indexed
-- `/cache`: folder to persist Tika's text extraction cache
+- `/share`: folder containing the files to be indexed
+- `/cache`: folder to persist Tika's search cache
 
 ```yml
 services:
@@ -233,8 +232,9 @@ services:
     image: semtech/mu-search:0.11.0
     volumes:
       - ./config/search:/config
-      - ./data/files:/data
-      - ./data/search/cache:/cache
+      - ./data/search:/data
+      - ./data/files:/share
+      - ./data/tika/cache:/cache
 ```
 
 Next, add a property `files` in the `project` type index configuration. The property `files` will hold the content and metadata of the files.
@@ -477,7 +477,7 @@ These objects are structured in the same way as the `attachment` objects resulti
 }
 ```
 
-Currently, only indexing of local files is supported. The files' logical path as well as other metadata is expected to be in the format specified by the [file-service](https://github.com/mu-semtech/file-service#data-model). Files must be present in the Docker volume `/data` inside the container.
+Currently, only indexing of local files is supported. The files' logical path as well as other metadata is expected to be in the format specified by the [file-service](https://github.com/mu-semtech/file-service#data-model). Files must be present in the Docker volume `/share` inside the container.
 
 Attachments processed by Tika are cached in the directory `/cache` (by SHA256 of the file contents). This must be defined as a shared volume for the cache to be persistent.
 
@@ -1082,7 +1082,7 @@ This section gives an overview of all configurable options in the search configu
 - (*) **update_wait_interval_minutes** : number of minutes to wait before applying an update. Allows to prevent duplicate updates of the same documents. Defaults to 1.
 - (*) **common_terms_cutoff_frequency** : [REMOVED] default cutoff frequency for a [Common terms query](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-common-terms-query.html). This parameter was removed by elastic search and is now ignored [supported search methods](#supported-search-methods).
 - (*) **enable_raw_dsl_endpoint** : flag to enable the [raw Elasticsearch DSL endpoint](#api). This endpoint is disabled by default for security reasons.
-- (*) **attachments_path_base** : path inside the Docker container where files for the attachment pipeline are mounted. Defaults to `/data`.
+- (*) **attachments_path_base** : path inside the Docker container where files for the attachment pipeline are mounted. Defaults to `/share`.
 
 All options prefixed with (*) can also be configured using an UPPERCASED variant as Docker environment variables on the mu-search container. E.g. the `batch_size` option can be set via the environment variable `BATCH_SIZE`. Environment variables take precedence over settings configured in `config.json`.
 

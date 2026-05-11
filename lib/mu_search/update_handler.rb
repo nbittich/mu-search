@@ -134,7 +134,16 @@ module MuSearch
 
     # Initializes the update queue and ensures the queue is persisted on disk at regular intervals
     def restore_queue_and_setup_persistence
-      @store = YAML::Store.new("/config/update-handler.store", true)
+      if File.exist?("/config/update-handler.store")
+        @logger.warn("UPDATE HANDLER") do
+          "Found update-handler.store in /config. " \
+          "Since v0.13.0 the store must be located at /data/update-handler.store. " \
+          "Please move the file and update your volume mounts. " \
+          "See the CHANGELOG for migration instructions."
+        end
+      end
+
+      @store = YAML::Store.new("/data/update-handler.store", true)
       @store.transaction do
         @queue = @store.fetch("queue", [])
         @subject_map = @subject_map.merge(@store.fetch("index", {}))

@@ -1,5 +1,27 @@
 # Changelog
 ## Unreleased
+:boom: **Breaking**
+- Change mount point of `update-handler.store` to `/data` instead of `/config`
+- Change mount point of files to `/share` instead of `/data`
+
+To upgrade execute the following steps in your project folder
+```bash
+mkdir -p ./data/search
+mv ./config/search/update-handler.store ./data/search
+```
+
+Next, update the mount points of the `search` service
+```yaml
+services:
+  search:
+    image: semtech/mu-search
+    volumes:
+      - ./config/search:/config
+      - ./data/search:/data
+      - ./data/files:/share # in case you index files
+      - ./data/tika/cache:/cache # in case you index files
+```
+
 
 ## v0.12.0
 **Features**

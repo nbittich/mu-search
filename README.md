@@ -302,7 +302,43 @@ Once Kibana has started the dashboard is available at http://localhost:5601
 Make sure not to expose the Kibana dashboard in a production environment!
 
 ### How to reset search indexes
-[To be completed...]
+There are three ways to reset search indexes, depending on how thorough a reset you need.
+
+#### 1. Hard reset via the filesystem
+This wipes all Elasticsearch data and forces a full reindex from the triplestore on next use. Use this when indexes are corrupt or you want a guaranteed clean slate.
+
+```bash
+docker-compose stop search elasticsearch
+rm -rf ./data/elasticsearch/*
+docker-compose up -d elasticsearch search
+```
+
+Indexes will be rebuilt automatically the first time each search profile executes a query, or immediately if [eager indexing groups](#eager-indexes) are configured.
+
+#### 2. Via the API
+The [admin endpoints](#admin-endpoints) let you delete or reindex specific types (or all types at once) without touching the filesystem.
+
+To delete all indexes and trigger an immediate full reindex:
+```bash
+# Delete all indexes (they will be recreated on the next search query)
+curl -X DELETE http://search/_all
+
+# Or immediately trigger a reindex of all types
+curl -X POST http://search/_all/index
+```
+
+To target a single type, replace `_all` with the type name (e.g. `documents`).
+
+Note that `DELETE` removes indexes from both Elasticsearch and the triplestore, so they are fully recreated on next use. `POST /:type/invalidate` only marks them as stale in memory and does not survive a restart — use `DELETE` when you want a persistent reset.
+
+#### 3. Via the mu-cli script
+An interactive script is available to manage individual indexes without writing curl commands. Run it with [mu-cli](https://github.com/mu-semtech/mu-cli) from your project folder:
+
+```bash
+mu script search manage-indexes
+```
+
+The script lists all current indexes (with document counts and allowed groups), lets you pick one, and then offers the choice to delete or reindex it.
 
 ## Reference
 ### Search index configuration

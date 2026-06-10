@@ -20,16 +20,21 @@ services:
       - db:database
     volumes:
       - ./config/search:/config
+      - ./data/search:/data
   elasticsearch:
     image: semtech/mu-search-elastic-backend:1.3.0
-    volumes:
-      - ./data/elasticsearch/:/usr/share/elasticsearch/data
     environment:
       - discovery.type=single-node
-
+volumes:
+  elasticsearch-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/data/elasticsearch
 ```
 
-Note: because elasticsearch doesn't run as root in its container, it will mess up file permissions on the host system's mounted volumes. The current workaround is to add the directory to your app's git repo with a .gitkeep file and to set the permissions of the directory to 777, then committing this file to your repo.
+Note: You'll notice we're using a named volume with a local bind here rather than a direct bind mount (e.g. `./data/elasticsearch:/usr/share/elasticsearch/data`) . Elasticsearch doesn't run as root in its container, so a direct bind mount will fail with permission errors. The named volume lets Docker handle permissions correctly. The host directory must exist before starting, so you need to add the directory to your app's git repo with a .gitkeep file. If you prefer a direct bind mount instead, you can still do that as well but you'll need to set 777 permissions on the directory.
 
 The indices will be persisted in `./data/elasticsearch`. The `search` service needs to be linked to an instance of the [mu-authorization](https://github.com/mu-semtech/mu-authorization) service.
 
@@ -218,8 +223,8 @@ services:
 ```
 
 Next, add the following mounted volumes to the mu-search service in `docker-compose.yml`:
-- `/data`: folder containing the files to be indexed
-- `/cache`: folder to persist Tika's text extraction cache
+- `/share`: folder containing the files to be indexed
+- `/cache`: folder to persist Tika's search cache
 
 ```yml
 services:
@@ -227,8 +232,9 @@ services:
     image: semtech/mu-search:0.11.0
     volumes:
       - ./config/search:/config
-      - ./data/files:/data
-      - ./data/search/cache:/cache
+      - ./data/search:/data
+      - ./data/files:/share
+      - ./data/tika/cache:/cache
 ```
 
 Next, add a property `files` in the `project` type index configuration. The property `files` will hold the content and metadata of the files.
@@ -296,7 +302,43 @@ Once Kibana has started the dashboard is available at http://localhost:5601
 Make sure not to expose the Kibana dashboard in a production environment!
 
 ### How to reset search indexes
-[To be completed...]
+There are three ways to reset search indexes, depending on how thorough a reset you need.
+
+#### 1. Hard reset via the filesystem
+This wipes all Elasticsearch data and forces a full reindex from the triplestore on next use. Use this when indexes are corrupt or you want a guaranteed clean slate.
+
+```bash
+docker-compose stop search elasticsearch
+rm -rf ./data/elasticsearch/*
+docker-compose up -d elasticsearch search
+```
+
+Indexes will be rebuilt automatically the first time each search profile executes a query, or immediately if [eager indexing groups](#eager-indexes) are configured.
+
+#### 2. Via the API
+The [admin endpoints](#admin-endpoints) let you delete or reindex specific types (or all types at once) without touching the filesystem.
+
+To delete all indexes and trigger an immediate full reindex:
+```bash
+# Delete all indexes (they will be recreated on the next search query)
+curl -X DELETE http://search/_all
+
+# Or immediately trigger a reindex of all types
+curl -X POST http://search/_all/index
+```
+
+To target a single type, replace `_all` with the type name (e.g. `documents`).
+
+Note that `DELETE` removes indexes from both Elasticsearch and the triplestore, so they are fully recreated on next use. `POST /:type/invalidate` only marks them as stale in memory and does not survive a restart — use `DELETE` when you want a persistent reset.
+
+#### 3. Via the mu-cli script
+An interactive script is available to manage individual indexes without writing curl commands. Run it with [mu-cli](https://github.com/mu-semtech/mu-cli) from your project folder:
+
+```bash
+mu script search manage-indexes
+```
+
+The script lists all current indexes (with document counts and allowed groups), lets you pick one, and then offers the choice to delete or reindex it.
 
 ## Reference
 ### Search index configuration
@@ -471,7 +513,7 @@ These objects are structured in the same way as the `attachment` objects resulti
 }
 ```
 
-Currently, only indexing of local files is supported. The files' logical path as well as other metadata is expected to be in the format specified by the [file-service](https://github.com/mu-semtech/file-service#data-model). Files must be present in the Docker volume `/data` inside the container.
+Currently, only indexing of local files is supported. The files' logical path as well as other metadata is expected to be in the format specified by the [file-service](https://github.com/mu-semtech/file-service#data-model). Files must be present in the Docker volume `/share` inside the container.
 
 Attachments processed by Tika are cached in the directory `/cache` (by SHA256 of the file contents). This must be defined as a shared volume for the cache to be persistent.
 
@@ -1076,7 +1118,7 @@ This section gives an overview of all configurable options in the search configu
 - (*) **update_wait_interval_minutes** : number of minutes to wait before applying an update. Allows to prevent duplicate updates of the same documents. Defaults to 1.
 - (*) **common_terms_cutoff_frequency** : [REMOVED] default cutoff frequency for a [Common terms query](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-common-terms-query.html). This parameter was removed by elastic search and is now ignored [supported search methods](#supported-search-methods).
 - (*) **enable_raw_dsl_endpoint** : flag to enable the [raw Elasticsearch DSL endpoint](#api). This endpoint is disabled by default for security reasons.
-- (*) **attachments_path_base** : path inside the Docker container where files for the attachment pipeline are mounted. Defaults to `/data`.
+- (*) **attachments_path_base** : path inside the Docker container where files for the attachment pipeline are mounted. Defaults to `/share`.
 
 All options prefixed with (*) can also be configured using an UPPERCASED variant as Docker environment variables on the mu-search container. E.g. the `batch_size` option can be set via the environment variable `BATCH_SIZE`. Environment variables take precedence over settings configured in `config.json`.
 

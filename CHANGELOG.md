@@ -1,5 +1,8 @@
 # Changelog
 ## Unreleased
+**Fixes**
+- correctly store uuid for nested documents
+
 :boom: **Breaking**
 - Change mount point of `update-handler.store` to `/data` instead of `/config`
 - Change mount point of files to `/share` instead of `/data`

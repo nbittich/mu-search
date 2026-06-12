@@ -91,6 +91,43 @@ JSON_CONFIG = JSON.parse(<<EOF
 EOF
                         )
 RSpec.describe MuSearch::IndexDefinition do
+  context "nested property definitions" do
+    # Use let (not a constant) so each example gets a fresh hash that hasn't been
+    # mutated by ensure_uuid_property in a previous example.
+    let(:nested_config) do
+      JSON.parse(<<~JSON)
+        [{
+          "type": "article",
+          "on_path": "articles",
+          "rdf_type": "http://schema.org/Article",
+          "properties": {
+            "title": "http://schema.org/name",
+            "author": {
+              "via": "http://schema.org/author",
+              "properties": {
+                "name": "http://schema.org/name"
+              }
+            }
+          }
+        }]
+      JSON
+    end
+
+    subject { MuSearch::IndexDefinition.from_json_config(nested_config) }
+
+    let(:index) { subject.first[1] }
+    let(:author_prop) { index.properties.find { |p| p.name == "author" } }
+
+    it "includes uuid in the top-level properties" do
+      expect(index.properties.map(&:name)).to include("uuid")
+    end
+
+    it "includes uuid in nested sub_properties" do
+      expect(author_prop).not_to be_nil
+      expect(author_prop.sub_properties.map(&:name)).to include("uuid")
+    end
+  end
+
   context "running from_json_config on a config with subindexes" do
     subject { MuSearch::IndexDefinition.from_json_config(JSON_CONFIG) }
 

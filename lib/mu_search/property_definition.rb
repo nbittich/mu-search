@@ -3,7 +3,8 @@ require_relative './prefix_utils'
 module MuSearch
   class PropertyDefinition
     PROPERTY_TYPES = ["simple", "nested", "attachment", "language-string"]
-    attr_reader :name, :type, :rdf_type, :path, :pipeline, :sub_properties
+    attr_reader :name, :type, :rdf_type, :path, :pipeline
+    attr_accessor :sub_properties
 
     def initialize(name: , path:,  type: "auto", rdf_type: nil, sub_properties:)
       raise "invalid type" unless PROPERTY_TYPES.include?(type)

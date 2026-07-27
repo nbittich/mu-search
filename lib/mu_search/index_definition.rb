@@ -110,7 +110,7 @@ module MuSearch
       properties.map do |(key, value)|
         property_definition = PropertyDefinition.from_json_config(key, value, prefixes)
         if property_definition.type == "nested"
-          build_property_definitions(value["properties"], prefixes)
+          property_definition.sub_properties = build_property_definitions(value["properties"], prefixes)
         end
         property_definition
       end

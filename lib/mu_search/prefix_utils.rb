@@ -8,6 +8,7 @@ module MuSearch
           return uri.sub("#{prefix}:", base_uri)
         end
       end
+      uri
     end
   end
 end

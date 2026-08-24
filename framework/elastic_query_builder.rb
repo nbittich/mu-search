@@ -185,7 +185,7 @@ class ElasticQueryBuilder
       end
     when "geo"
       ensure_single_field_for flag, fields do |field|
-        query = value.split(",") # just for the poc
+        query = value.split(",") # x and y coordinates separated by a comma
         x_lambert = query[0].to_f
         y_lambert = query[1].to_f
         output = `echo "#{x_lambert} #{y_lambert}" | gdaltransform -s_srs EPSG:31370 -t_srs EPSG:4326`

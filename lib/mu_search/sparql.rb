@@ -144,13 +144,12 @@ module MuSearch
     # incorrect invalidation when delta's arrive. Perhaps we should store
     # the relevant URIs in the stored document so we can invalidate it
     # correctly when new content arrives.
-  def self.make_predicate_string(predicate)
-    if predicate.is_a? String
-      predicate_string_term(predicate)
-    else
-      predicate.map { |pred| predicate_string_term(pred) }.join("/")
+    def self.make_predicate_string(predicate)
+      if predicate.is_a? String
+        predicate_string_term(predicate)
+      else
+        predicate.map { |pred| predicate_string_term(pred) }.join("/")
+      end
     end
-  end
  
-  end
 end

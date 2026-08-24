@@ -94,7 +94,6 @@ module MuSearch
       where_portion_list = property_query_info.map do |info|
         "#{escaped_source_uri} #{info[:sparql_property_path]} #{info[:sparql_where_variable]}."
       end
-      
       query = <<SPARQL
       CONSTRUCT {
         #{construct_portion_list.join("\n    ")}

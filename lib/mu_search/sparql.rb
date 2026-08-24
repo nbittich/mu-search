@@ -148,8 +148,8 @@ module MuSearch
       if predicate.is_a? String
         predicate_string_term(predicate)
       else
-        predicate.map { |pred| predicate_string_term(pred) }.join("/")
+        predicate.map { |pred| predicate_string_term pred }.join("/")
       end
     end
- 
+  end
 end
